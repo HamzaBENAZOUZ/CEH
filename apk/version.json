@@ -1,7 +1,7 @@
 {
- "versionCode": 18,
- "versionName": "2.7",
+ "versionCode": 19,
+ "versionName": "2.8",
  "apk": "ceh-training.apk",
- "notes_fr": "Révision : un chapitre ouvert s'adapte à la largeur de l'écran, en paysage comme en portrait.",
- "notes": "Review: an open chapter now fits the screen width in landscape and portrait."
+ "notes_fr": "Cours EC-Council : modules 11 à 15 ajoutés (Session hijacking, Evasion IDS/firewalls/honeypots, Web servers, Web applications, SQL injection).",
+ "notes": "EC-Council course: modules 11 to 15 added (French only)."
 }

@@ -1,7 +1,7 @@
 {
- "versionCode": 14,
- "versionName": "2.3",
+ "versionCode": 15,
+ "versionName": "2.4",
  "apk": "ceh-training.apk",
- "notes_fr": "Résumé du livre : chapitres 6 à 10 allongés (web, sans fil, mobile et IoT, cloud, malwares et DoS).",
- "notes": "Book summary: chapters 6-10 lengthened (web, wireless, mobile and IoT, cloud, malware and DoS)."
+ "notes_fr": "Résumé du livre : chapitres 11 à 14 allongés (crypto, social engineering, IA, pen test). Les 14 chapitres sont repassés.",
+ "notes": "Book summary: chapters 11-14 lengthened (crypto, social engineering, AI, pen test). All 14 chapters revised."
 }

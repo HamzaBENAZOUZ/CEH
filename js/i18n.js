@@ -440,7 +440,7 @@ const DICT = {
     "xd.title": "Last-day review",
     "rd.title": "Detailed review",
     "rd.sub": "The full sheets of the 14 chapters: detailed summary, in-depth notions, exam reflexes and points to memorize. Each chapter can be read or played on its own.",
-    "xd.sub": "Review for the day before or exam day, about 3 hours: for each of the 14 chapters, the must-know points, exam reflexes, then the in-depth notions. Each chapter can also be played on its own. The English version is coming; the French one is available now.",
+    "xd.sub": "Review for the day before or exam day, about 3 hours: for each of the 14 chapters, the must-know points, exam reflexes, then the in-depth notions (definitions, classifications, tools, ports, standards, countermeasures, traps). Each chapter can also be played on its own.",
     "xp.readAll": "Listen to it all",
     "xp.sub": "Last-minute review to listen to: the must-know points of each of the 14 chapters, then exam-day reflexes. Each part can also be played on its own.",
     "rev.destTitle": "Book summary (in French) · {d}",

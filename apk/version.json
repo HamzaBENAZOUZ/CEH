@@ -1,7 +1,7 @@
 {
- "versionCode": 5,
- "versionName": "1.4",
+ "versionCode": 6,
+ "versionName": "1.5",
  "apk": "ceh-training.apk",
- "notes_fr": "Même cadre vert pour les 3 sections de Révision",
- "notes": "Same green frame for the 3 Review sections"
+ "notes_fr": "Révision dernier jour aussi en anglais",
+ "notes": "Last-day review now also in English"
 }

@@ -5,6 +5,7 @@ import { REVISION } from "./revision.js";   // fiches « Révision CEH » (chapi
 import { REVAUDIO } from "./revision-audio.js";
 import { DESTINATION } from "./destination.js";
 import { EXPRESS } from "./express-audio.js";
+import { DETAIL } from "./detail-audio.js";
 REVISION.forEach(r => { if (REVAUDIO[r.id]) r.audio = REVAUDIO[r.id]; });   // volet « Version audio » des chapitres
 
 /** Vrai dans l'application Android (pont vocal AndroidTTS fourni par l'APK). */
@@ -20,6 +21,10 @@ const DEF_SEC = "revision";
 const CEH_DOMS = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14];   // CEH : un « domaine » = un chapitre du livre
 // Révision express (3.32) : introduction (0), 6 domaines (1-6), dernier quart d'heure (7), volet unique « audio »
 const XP = EXPRESS.map(r => ({ ...r, x: true }));
+// Révision détaillée (CEH 1.2, environ 3 h) : même format que l'express, identifiants 100-115, en tête de l'onglet Révision
+const DX = DETAIL.map(r => ({ ...r, x: true, dx: true }));
+const XPALL = [...XP, ...DX];
+const xpKey = dom => dom === "Y" ? "xd" : "xp";
 const xpTitle = (r, lang) => r.title ? (r.title[lang] || r.title.fr) : t("cehDomain." + r.id, {}, lang);
 const xpNum = () => "";   // CEH : le titre dit déjà « Chapitre n »
 /** Chapitres de ce site. */
@@ -130,6 +135,7 @@ function setReadEst(btn, size) {
 }
 function refreshReadEst() {
   document.querySelectorAll(".read-est").forEach(sp => { sp.textContent = "⏱ " + readEstText(+sp.dataset.chars || 0, +sp.dataset.units || 0); });
+  document.querySelectorAll(".xp-total").forEach(sp => { sp.textContent = readEstText(+sp.dataset.chars || 0, +sp.dataset.units || 0); });
 }
 function setRate(dir) {
   const i = RATES.indexOf(ttsRate);
@@ -904,7 +910,7 @@ function errorPanel(title, msg, hint) {
 // Numéro de version affiché discrètement à côté du logo (même numéro que l'APK : à changer à chaque version).
 const ESL_KEY = "ceh-esl";
 const eslOn = () => { try { return localStorage.getItem(ESL_KEY) === "1"; } catch { return false; } };
-const APP_VERSION = "1.1";
+const APP_VERSION = "1.2";
 function renderVersion() {
   if (document.getElementById("app-ver")) return;
   const brand = document.querySelector(".brand"); if (!brand) return;
@@ -1203,8 +1209,8 @@ function tvSync() {
     const head = r => revHead(r) + "\t" + revSpeech(r, "all", lang);
     tv.link.send({
       t: "sheet", ui: getLang(), lang, key: sec + ":D" + dom + ":all:" + lang,
-      kicker: t("rev.tab"), title: dom === "X" ? t("xp.title", {}, lang) : `CH${dom} · ${t("cehDomain." + dom, {}, lang)}`, pane: t(dom === "X" ? "xp.readAll" : "rev.readDomain", {}, lang),
-      head: dom === "X" ? "" : joinSpeech([(lang === "fr" ? "Chapitre " : "Chapter ") + dom, t("cehDomain." + dom, {}, lang)]),
+      kicker: t("rev.tab"), title: dom === "X" || dom === "Y" ? t(xpKey(dom) + ".title", {}, lang) : `CH${dom} · ${t("cehDomain." + dom, {}, lang)}`, pane: t(dom === "X" || dom === "Y" ? "xp.readAll" : "rev.readDomain", {}, lang),
+      head: dom === "X" || dom === "Y" ? "" : joinSpeech([(lang === "fr" ? "Chapitre " : "Chapter ") + dom, t("cehDomain." + dom, {}, lang)]),
       kind: "mixed", lines: rs.filter(r => lang === "fr" || !frOnly(r)).flatMap(r => { const ls = revLines(r, r.x ? "audio" : "all", lang); return ls.length ? ["# " + head(r), ...ls] : []; }),
     });
     return;
@@ -1213,7 +1219,7 @@ function tvSync() {
     const { sec, r, pane, lang } = tvRev;
     tv.link.send({
       t: "sheet", ui: getLang(), lang, key: sec + ":" + r.id + ":" + pane + ":" + lang,
-      kicker: r.x ? t("xp.title") : t("rev.tab"),
+      kicker: r.x ? t(r.dx ? "xd.title" : "xp.title") : t("rev.tab"),
       title: revHead(r),
       pane: paneTitle(pane, lang), head: revSpeech(r, pane, lang),
       kind: ["sum", "audio", "bsum", "bess", "all"].includes(pane) ? "mixed" : "list", lines: revLines(r, pane, lang),
@@ -1513,7 +1519,10 @@ function autoGroups(lang) {
         subtitle: "CH" + ((chById(r.id) || {}).domain || "") + " · " + (fr ? "fiche" : "sheet") + (bk.length ? (fr ? " + livre" : " + book") : ""), lang,
         // le nom complet du chapitre est annoncé au début de la lecture
         parts: [(fr ? "Chapitre " : "Chapter ") + (r.id - 600) + ", " + chTitle(r.id) + ".", ...(au ? lines(r, ["audio"]) : lines(r, REV_PANES)), ...bk] }; };
-    // Révision express (3.32) : en premier dans la voiture
+    // Révision détaillée (1.2) puis révision express : en premier dans la voiture
+    groups.push({ title: t("xd.title", {}, lang), subtitle: fr ? "Introduction, 14 chapitres approfondis, dernier quart d'heure" : "Introduction, 14 chapters in depth, last quarter of an hour",
+      items: DX.filter(r => r.audio[lang] && r.audio[lang].length).map(r => ({ key: "xd-" + r.id + "-" + lang, title: xpTitle(r, lang),
+        subtitle: t("xd.title", {}, lang), lang, parts: [joinSpeech([xpNum(r, lang), xpTitle(r, lang)]), ...revLines(r, "audio", lang).map(clean)] })) });
     groups.push({ title: t("xp.title", {}, lang), subtitle: fr ? "Introduction, 14 chapitres, dernier quart d'heure" : "Introduction, 14 chapters, last quarter of an hour",
       items: XP.filter(r => r.audio[lang] && r.audio[lang].length).map(r => ({ key: "xp-" + r.id + "-" + lang, title: xpTitle(r, lang),
         subtitle: t("xp.title", {}, lang), lang, parts: [joinSpeech([xpNum(r, lang), xpTitle(r, lang)]), ...revLines(r, "audio", lang).map(clean)] })) });
@@ -2137,7 +2146,7 @@ const revKey = r => "revision:" + (r.x ? "X" : r.lms ? "L" : "") + r.id;
 function renderRevision() {
   const sec = "revision", lang = getLang();
   const LMS = DESTINATION;   // résumé du livre Destination CEH, en tête de chaque domaine
-  const itemOf = d => { const v = d.dataset.rev; return v[0] === "X" ? XP.find(x => x.id === +v.slice(1)) : v[0] === "L" ? LMS.find(x => x.id === +v.slice(1)) : REVISION.find(x => x.id === +v); };
+  const itemOf = d => { const v = d.dataset.rev; return v[0] === "X" ? XPALL.find(x => x.id === +v.slice(1)) : v[0] === "L" ? LMS.find(x => x.id === +v.slice(1)) : REVISION.find(x => x.id === +v); };
   const panesOf = r => { if (r.x) return ["audio"]; const P = [...allPanes(r, lang), ...(r.audio && r.audio[lang] ? ["audio"] : [])]; return r.lms && P.length < 2 ? P : [...P, "all"]; };
   const paneOf = r => { const P = panesOf(r), p = revOpen.get(revKey(r)); return P.includes(p) ? p : P[0]; };
   const paneBtn = (p, pane, r) => `<button class="seg-btn${BOOK_PANES.includes(p) ? " seg-book" : ""}" data-revpane="${p}" aria-pressed="${p === pane}">${esc(p === "all" && r.lms ? t("rev.pane.allLms") : paneTitle(p, lang))}</button>`;
@@ -2148,7 +2157,7 @@ function renderRevision() {
     const pane = paneOf(r), c = r.lms ? null : chById(r.id);
     return `
     <details class="rev-card${r.lms ? " rev-card-lms" : ""}${r.x ? " rev-card-xp" : ""}" data-rev="${r.x ? "X" : r.lms ? "L" : ""}${r.id}" ${revOpen.has(revKey(r)) ? "open" : ""}>
-      <summary>${r.x ? `<span class="ch-num mono">${r.id >= 1 && r.id <= 14 ? "CH" + r.id : r.id ? "FIN" : "INTRO"}</span> <span class="ch-title">${esc(xpTitle(r, lang))}</span>`
+      <summary>${r.x ? `<span class="ch-num mono">${(n => n >= 1 && n <= 14 ? "CH" + n : n ? "FIN" : "INTRO")(r.dx ? r.id - 100 : r.id)}</span> <span class="ch-title">${esc(xpTitle(r, lang))}</span>`
         : r.lms ? `<span class="ch-num mono">📗 Destination CEH</span> <span class="ch-title">${esc(t("rev.destTitle", { d: domainName(r.id, "ceh") }))}</span>`
         : `<span class="ch-num mono">${chLabel(r.id)}</span> <span class="ch-title">${esc(chTitle(c) || "")}</span>`}</summary>
       <div class="rev-body">
@@ -2161,19 +2170,21 @@ function renderRevision() {
       </div>
     </details>`;
   };
-  const xpBlock = `<section class="domain domain-xp" data-revdom="X"><div class="domain-head"><h2><span class="mono accent">⏱</span> ${esc(t("xp.title"))}</h2>
-        <div class="row rev-speak">${speakBtns("data-domspeak", "Écouter toute la révision express (cliquer à nouveau pour arrêter)", "Listen to the whole express review (click again to stop)")
+  // Révision détaillée (en tête) et révision express (à la fin) : titre avec la durée totale estimée à la vitesse choisie
+  const xpBlock = (dom, list) => { const k = xpKey(dom), sz = textSize(list.flatMap(r => revLines(r, "audio", lang)));
+    return `<section class="domain domain-xp" data-revdom="${dom}"><div class="domain-head"><h2><span class="mono accent">⏱</span> ${esc(t(k + ".title"))} · <span class="xp-total" data-chars="${sz.chars}" data-units="${sz.units}">${esc(readEstText(sz.chars, sz.units))}</span></h2>
+        <div class="row rev-speak">${speakBtns("data-domspeak", "Écouter toute la révision (cliquer à nouveau pour arrêter)", "Listen to the whole review (click again to stop)")
           .replace(/🔊 Lire</, "🔊 " + esc(t("xp.readAll", {}, "fr")) + "<").replace(/🔊 Listen</, "🔊 " + esc(t("xp.readAll", {}, "en")) + "<")}</div></div>
-      <p class="muted">${esc(t("xp.sub"))}</p>
-      <div class="rev-grid">${XP.map(card).join("")}</div></section>`;
-  const blocks = xpBlock + CEH_DOMS.map(d => {   // 6 domaines CEH
+      <p class="muted">${esc(t(k + ".sub"))}</p>
+      <div class="rev-grid">${list.map(card).join("")}</div></section>`; };
+  const blocks = xpBlock("Y", DX) + CEH_DOMS.map(d => {   // 6 domaines CEH
     const rs = [...LMS.filter(r => r.id === d), ...REVISION.filter(r => (chById(r.id) || {}).domain === d)];
     if (!rs.length) return "";
     return `<section class="domain" data-revdom="${d}"><div class="domain-head"><h2><span class="mono accent">CH${d}</span> ${esc(domainName(d, "ceh"))}</h2>
         <div class="row rev-speak">${speakBtns("data-domspeak", "Lire tout le domaine : chaque chapitre à la suite (cliquer à nouveau pour arrêter)", "Read the whole domain: each chapter in a row (click again to stop)")
           .replace(/🔊 Lire</, "🔊 " + esc(t("rev.readDomain", {}, "fr")) + "<").replace(/🔊 Listen</, "🔊 " + esc(t("rev.readDomain", {}, "en")) + "<")}</div></div>
       <div class="rev-grid">${rs.map(card).join("")}</div></section>`;
-  }).join("");
+  }).join("") + xpBlock("X", XP);
   app.innerHTML = `
   <div id="offline-slot"></div>
   <section class="hero">
@@ -2224,7 +2235,7 @@ function renderRevision() {
   // « Lire tout le domaine » : chaque fiche du domaine est ouverte sur « Tout », puis tout est lu à la suite (avec surlignage).
   app.querySelectorAll("[data-domspeak]").forEach(b => b.onclick = e => {
     e.preventDefault();
-    const sect = b.closest("[data-revdom]"), dom = sect.dataset.revdom === "X" ? "X" : +sect.dataset.revdom, l = b.dataset.domspeak, k = `revision:D${dom}:${l}`;
+    const sect = b.closest("[data-revdom]"), dom = ["X", "Y"].includes(sect.dataset.revdom) ? sect.dataset.revdom : +sect.dataset.revdom, l = b.dataset.domspeak, k = `revision:D${dom}:${l}`;
     const cards = [...sect.querySelectorAll(".rev-card")].filter(d => l === "fr" || !frOnly(itemOf(d))), parts = [];   // résumé du livre : en français seulement
     // télé connectée : tout le domaine est lu sur la télé seulement (rien sur le téléphone)
     if (tv && tv.ok) { stopSpeak(); tvDomain(sec, dom, cards.map(itemOf), l); tvSpeak("sheet"); return; }

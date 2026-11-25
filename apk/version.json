@@ -1,7 +1,7 @@
 {
- "versionCode": 17,
- "versionName": "2.6",
+ "versionCode": 18,
+ "versionName": "2.7",
  "apk": "ceh-training.apk",
- "notes_fr": "Cours EC-Council : modules 6 à 10 ajoutés (System hacking, Malware, Sniffing, Social engineering, DoS).",
- "notes": "EC-Council course: modules 6 to 10 added (French only)."
+ "notes_fr": "Révision : un chapitre ouvert s'adapte à la largeur de l'écran, en paysage comme en portrait.",
+ "notes": "Review: an open chapter now fits the screen width in landscape and portrait."
 }

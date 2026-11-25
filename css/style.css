@@ -862,3 +862,11 @@ body.has-nav .speed-clock { bottom: calc(env(safe-area-inset-bottom, 0px) + 72px
 h4.expert-h { margin-top: 1.4em; padding: .45em .7em; border-left: 4px solid var(--accent, #d97706); background: color-mix(in srgb, var(--accent, #d97706) 12%, transparent); border-radius: 6px; }
 h4.expert-h ~ p { border-left: 2px solid color-mix(in srgb, var(--accent, #d97706) 45%, transparent); padding-left: .7em; }
 ul.expert-list li { border-left: 3px solid var(--accent, #d97706); padding-left: .6em; margin-bottom: .5em; }
+/* 2.7 : Révision — une fiche ouverte ne doit jamais élargir la page (paysage comme portrait) */
+.rev-grid { grid-template-columns: minmax(0, 1fr); }
+.rev-grid > *, .rev-card { min-width: 0; max-width: 100%; }
+.rev-card > summary { flex-wrap: wrap; row-gap: .3rem; }
+.rev-card > summary > * { min-width: 0; }
+.rev-card .seg, .rev-panes { max-width: 100%; flex-wrap: wrap; }
+.rev-pane, .rev-pane p, .rev-pane li, .rev-pane h3, .rev-pane h4 { overflow-wrap: anywhere; }
+.rev-pane table, .rev-pane pre { display: block; max-width: 100%; overflow-x: auto; }

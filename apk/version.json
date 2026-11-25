@@ -1,7 +1,7 @@
 {
- "versionCode": 16,
- "versionName": "2.5",
+ "versionCode": 17,
+ "versionName": "2.6",
  "apk": "ceh-training.apk",
- "notes_fr": "Nouvelle section Cours EC-Council dans Révision : modules 1 à 5 traduits et reformulés en français.",
- "notes": "New EC-Council course section in Review: modules 1-5 translated and rewritten in French."
+ "notes_fr": "Cours EC-Council : modules 6 à 10 ajoutés (System hacking, Malware, Sniffing, Social engineering, DoS).",
+ "notes": "EC-Council course: modules 6 to 10 added (French only)."
 }

@@ -1,7 +1,7 @@
 {
- "versionCode": 15,
- "versionName": "2.4",
+ "versionCode": 16,
+ "versionName": "2.5",
  "apk": "ceh-training.apk",
- "notes_fr": "Résumé du livre : chapitres 11 à 14 allongés (crypto, social engineering, IA, pen test). Les 14 chapitres sont repassés.",
- "notes": "Book summary: chapters 11-14 lengthened (crypto, social engineering, AI, pen test). All 14 chapters revised."
+ "notes_fr": "Nouvelle section Cours EC-Council dans Révision : modules 1 à 5 traduits et reformulés en français.",
+ "notes": "New EC-Council course section in Review: modules 1-5 translated and rewritten in French."
 }

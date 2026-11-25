@@ -7,6 +7,7 @@ import { DESTINATION } from "./destination.js";
 import { EXPRESS } from "./express-audio.js";
 import { DETAIL } from "./detail-audio.js";
 import { BOOK } from "./book-audio.js";
+import { COURS } from "./cours-audio.js";
 import { EXPERT } from "./expert.js";
 REVISION.forEach(r => { if (REVAUDIO[r.id]) r.audio = REVAUDIO[r.id]; });   // volet « Version audio » des chapitres
 
@@ -29,7 +30,9 @@ const XP = EXPRESS.map(r => ({ ...r, x: true }));
 const DX = DETAIL.map(r => ({ ...r, x: true, dx: true }));
 // Résumé du livre (1.6) : un résumé par chapitre (ids 201-214), tout en haut de l'onglet Révision
 const BK = BOOK.map(r => ({ ...r, x: true, bk: true }));
-const XPALL = [...XP, ...DX, ...BK];
+// Cours EC-Council (2.5, demande HB) : modules 1 à 20 traduits et reformulés en français, puis le glossaire (ids 301-321)
+const CO = COURS.map(r => ({ ...r, x: true, co: true }));
+const XPALL = [...XP, ...DX, ...BK, ...CO];
 /* Section « Expert CEH » (2.1, demande HB) : pièges et questions probables, à la fin de chaque chapitre de chaque version
    de révision (Résumé du livre, Dernier jour, Express) et en volet dans la Révision détaillée. */
 const EXPERT_H = { fr: "🎯 Expert CEH : pièges et questions probables", en: "🎯 CEH expert: traps and likely questions" };
@@ -39,8 +42,8 @@ for (const [list, base] of [[XP, 0], [DX, 100], [BK, 200]]) for (const r of list
   for (const L of Object.keys(r.audio)) if (e[L] && r.audio[L] && r.audio[L].length) r.audio[L] = [...r.audio[L], "## " + EXPERT_H[L], EXPERT_INTRO[L], ...e[L]];
 }
 REVISION.forEach(r => { const e = EXPERT[r.id - 600]; if (e) r.expert = e; });
-const XDOMS = ["X", "Y", "B"];
-const xpKey = dom => dom === "Y" ? "xd" : dom === "B" ? "bk" : "xp";
+const XDOMS = ["X", "Y", "B", "C"];
+const xpKey = dom => dom === "Y" ? "xd" : dom === "B" ? "bk" : dom === "C" ? "co" : "xp";
 const xpTitle = (r, lang) => r.title ? (r.title[lang] || r.title.fr) : t("cehDomain." + r.id, {}, lang);
 const xpNum = () => "";   // CEH : le titre dit déjà « Chapitre n »
 /** Chapitres de ce site. */
@@ -937,7 +940,7 @@ function errorPanel(title, msg, hint) {
 // Numéro de version affiché discrètement à côté du logo (même numéro que l'APK : à changer à chaque version).
 const ESL_KEY = "ceh-esl";
 const eslOn = () => { try { return localStorage.getItem(ESL_KEY) === "1"; } catch { return false; } };
-const APP_VERSION = "2.4";
+const APP_VERSION = "2.5";
 function renderVersion() {
   if (document.getElementById("app-ver")) return;
   const brand = document.querySelector(".brand"); if (!brand) return;
@@ -1246,7 +1249,7 @@ function tvSync() {
     const { sec, r, pane, lang } = tvRev;
     tv.link.send({
       t: "sheet", ui: getLang(), lang, key: sec + ":" + r.id + ":" + pane + ":" + lang,
-      kicker: r.x ? t(r.bk ? "bk.title" : r.dx ? "xd.title" : "xp.title") : t("rev.tab"),
+      kicker: r.x ? t(r.co ? "co.title" : r.bk ? "bk.title" : r.dx ? "xd.title" : "xp.title") : t("rev.tab"),
       title: revHead(r),
       pane: paneTitle(pane, lang), head: revSpeech(r, pane, lang),
       kind: ["sum", "audio", "bsum", "bess", "all"].includes(pane) ? "mixed" : "list", lines: revLines(r, pane, lang),
@@ -1550,6 +1553,9 @@ function autoGroups(lang) {
     groups.push({ title: t("bk.title", {}, lang), subtitle: fr ? "14 chapitres du livre, l'essentiel pour l'examen" : "14 book chapters, what matters for the exam",
       items: BK.filter(r => r.audio[lang] && r.audio[lang].length).map(r => ({ key: "bk-" + r.id + "-" + lang, title: xpTitle(r, lang),
         subtitle: t("bk.title", {}, lang), lang, parts: [joinSpeech([xpNum(r, lang), xpTitle(r, lang)]), ...revLines(r, "audio", lang).map(clean)] })) });
+    if (fr && CO.length) groups.push({ title: t("co.title", {}, lang), subtitle: "Modules du cours officiel, reformulés en français",
+      items: CO.filter(r => r.audio.fr && r.audio.fr.length).map(r => ({ key: "co-" + r.id + "-fr", title: xpTitle(r, "fr"),
+        subtitle: t("co.title", {}, "fr"), lang: "fr", parts: [xpTitle(r, "fr") + ".", ...revLines(r, "audio", "fr").map(clean)] })) });
     groups.push({ title: t("xd.title", {}, lang), subtitle: fr ? "Introduction, 14 chapitres approfondis, dernier quart d'heure" : "Introduction, 14 chapters in depth, last quarter of an hour",
       items: DX.filter(r => r.audio[lang] && r.audio[lang].length).map(r => ({ key: "xd-" + r.id + "-" + lang, title: xpTitle(r, lang),
         subtitle: t("xd.title", {}, lang), lang, parts: [joinSpeech([xpNum(r, lang), xpTitle(r, lang)]), ...revLines(r, "audio", lang).map(clean)] })) });
@@ -2268,7 +2274,7 @@ function revSpeech(r, pane, lang) {
  *  titre affiché (télé), volets non vides seulement, texte en français seulement (pas lu avec une voix anglaise). */
 const DEST_SAY = { fr: "Destination CEH, résumé du livre. ", en: "Destination CEH, book summary. " };
 const revHead = r => r.x ? xpTitle(r, getLang()) : r.lms ? "📗 Destination CEH · D" + r.id + " · " + domainName(r.id, "ceh") : `${chLabel(r.id)} · ${chTitle(chById(r.id)) || ""}`;
-const frOnly = r => !!((r.lms && r.sum && !r.sum.en) || r.bk);   // résumé du livre : français seulement
+const frOnly = r => !!((r.lms && r.sum && !r.sum.en) || r.bk || r.co);   // résumé du livre : français seulement
 /** Volets d'un chapitre de la Révision fusionnée : fiche (Résumé, Préparer l'examen, À mémoriser), puis texte du livre. */
 const hasBook = id => !!(state.notes && state.notes.get(id));
 const allPanes = (r, lang) => r.x ? ["audio"] : r.lms ? REV_PANES.filter(p => (r[p] && (r[p].fr || r[p].en) || []).length) : [...REV_PANES, ...(hasBook(r.id) ? BOOK_PANES : [])];
@@ -2310,7 +2316,7 @@ function renderRevision() {
     const pane = paneOf(r), c = r.lms ? null : chById(r.id);
     return `
     <details class="rev-card${r.lms ? " rev-card-lms" : ""}${r.x ? " rev-card-xp" : ""}" data-rev="${r.x ? "X" : r.lms ? "L" : ""}${r.id}" ${revOpen.has(revKey(r)) ? "open" : ""}>
-      <summary>${r.x ? `<span class="ch-num mono">${(n => n >= 1 && n <= 14 ? "CH" + n : n ? "FIN" : "INTRO")(r.bk ? r.id - 200 : r.dx ? r.id - 100 : r.id)}</span> <span class="ch-title">${esc(xpTitle(r, lang))}</span>`
+      <summary>${r.x ? `<span class="ch-num mono">${r.co ? (r.id - 300 <= 20 ? "M" + (r.id - 300) : "GLOSS") : (n => n >= 1 && n <= 14 ? "CH" + n : n ? "FIN" : "INTRO")(r.bk ? r.id - 200 : r.dx ? r.id - 100 : r.id)}</span> <span class="ch-title">${esc(xpTitle(r, lang))}</span>`
         : r.lms ? `<span class="ch-num mono">📗 Destination CEH</span> <span class="ch-title">${esc(t("rev.destTitle", { d: domainName(r.id, "ceh") }))}</span>`
         : `<span class="ch-num mono">${chLabel(r.id)}</span> <span class="ch-title">${esc(chTitle(c) || "")}</span>`}</summary>
       <div class="rev-body">
@@ -2340,7 +2346,7 @@ function renderRevision() {
           .replace(/🔊 Lire</, "🔊 " + esc(t("rev.readDomain", {}, "fr")) + "<").replace(/🔊 Listen</, "🔊 " + esc(t("rev.readDomain", {}, "en")) + "<")}</div></div>
       <div class="rev-grid">${rs.map(card).join("")}</div></section>`;
   }).join("");
-  const blocks = (BK.length ? xpBlock("B", BK) : "") + `<section class="rev-group"><h2 class="rev-group-title"><span class="mono accent">📘</span> ${esc(t("rd.title"))} · <span class="xp-total" data-chars="${chSize.chars}" data-units="${chSize.units}">${esc(readEstText(chSize.chars, chSize.units))}</span></h2>
+  const blocks = (BK.length ? xpBlock("B", BK) : "") + (CO.length ? xpBlock("C", CO) : "") + `<section class="rev-group"><h2 class="rev-group-title"><span class="mono accent">📘</span> ${esc(t("rd.title"))} · <span class="xp-total" data-chars="${chSize.chars}" data-units="${chSize.units}">${esc(readEstText(chSize.chars, chSize.units))}</span></h2>
       <p class="muted">${esc(t("rd.sub"))}</p>${chapters}</section>` + xpBlock("Y", DX) + xpBlock("X", XP);
   app.innerHTML = `
   <div id="offline-slot"></div>

@@ -15,8 +15,8 @@ const PASS = CFG.PASS_MARK || 70;
 const DOMAIN_IDS = [1, 2, 3, 4, 5, 6, 7, 8];
 /* Site CEH : QCM par chapitre (601-614, rédigés d'après le CEH Study Guide de Matt Walker) et Practice Exam du livre (701), dans la même base
    Supabase que le site CISSP. Les chapitres CISSP (1-112, 401-408) ne sont pas chargés. */
-const SECTIONS = ["ceh-guide", "ceh-practice", "ceh-isc2", "revision", "improve", "search"];
-const DEF_SEC = "ceh-guide";
+const SECTIONS = ["revision", "ceh-guide", "ceh-practice", "ceh-isc2", "improve", "search"];
+const DEF_SEC = "revision";
 const CEH_DOMS = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14];   // CEH : un « domaine » = un chapitre du livre
 // Révision express (3.32) : introduction (0), 6 domaines (1-6), dernier quart d'heure (7), volet unique « audio »
 const XP = EXPRESS.map(r => ({ ...r, x: true }));
@@ -904,7 +904,7 @@ function errorPanel(title, msg, hint) {
 // Numéro de version affiché discrètement à côté du logo (même numéro que l'APK : à changer à chaque version).
 const ESL_KEY = "ceh-esl";
 const eslOn = () => { try { return localStorage.getItem(ESL_KEY) === "1"; } catch { return false; } };
-const APP_VERSION = "1.0";
+const APP_VERSION = "1.1";
 function renderVersion() {
   if (document.getElementById("app-ver")) return;
   const brand = document.querySelector(".brand"); if (!brand) return;
@@ -1894,7 +1894,7 @@ function secTabs(sec) {
   const nIn = s => s === "search" ? state.questions.length : s === "improve" ? mistakes().length : s === "revision" ? CEH_DOMS.length : state.questions.filter(q => secOf(q.chapter_id) === s).length;
   const SEC_NAMES = { "ceh-guide": t("sec.ceh-guide"), "ceh-practice": "CEH Practice", "ceh-isc2": t("isc2.tab"), revision: t("rev.tabAll"), improve: getLang() === "fr" ? "Axes d'amélioration" : "Improvement areas",
     search: getLang() === "fr" ? "🔎 Rechercher" : "🔎 Search" };
-  const secs = Object.keys(SEC_NAMES).filter(hasSection);
+  const secs = SECTIONS.filter(k => SEC_NAMES[k] && hasSection(k));
   return secs.length > 1 ? `
     <div class="seg sec-tabs" role="group" aria-label="${esc(t("sec.label"))}">
       ${secs.map(k => `<button class="seg-btn" data-section="${k}" aria-pressed="${k === sec}">${esc(SEC_NAMES[k])}

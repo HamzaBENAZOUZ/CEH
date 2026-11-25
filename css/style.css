@@ -883,3 +883,6 @@ ul.expert-list li { border-left: 3px solid var(--accent, #d97706); padding-left:
 .rd-act { display: flex; gap: .4rem; flex: 0 0 auto; }
 .rd-hist { margin-top: .6rem; }
 .rd-hist > summary { cursor: pointer; color: var(--muted); font-size: .9rem; margin-bottom: .5rem; }
+/* 3.1 : taille du texte de lecture séparée de l'interface (Paramètres) */
+:root { --read-fs: 1; }
+.rev-pane, .q-text, .opt-txt, .explain, .q-scenario, .read-text, [data-tts="scenario"] { zoom: var(--read-fs); }

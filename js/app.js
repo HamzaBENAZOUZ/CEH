@@ -417,11 +417,29 @@ function hlShow(u) {
   let rect;
   if (HL_API && u.range) { CSS.highlights.set("tts", new Highlight(u.range)); rect = u.range.getBoundingClientRect(); }
   else { hlEl = u.el; hlEl.classList.add("tts-on"); rect = hlEl.getBoundingClientRect(); }
-  // garde la phrase lue visible à l'écran
-  // (la barre de lecture fixée en haut cachait la phrase quand elle se trouvait juste dessous : en haut de la fiche)
-  const vh = window.innerHeight || 600, bar = document.getElementById("tts-bar");
-  const top = Math.max(70, bar && !bar.hidden ? bar.getBoundingClientRect().bottom + 8 : 0);
-  if (rect && rect.height && (rect.top < top || rect.bottom > vh - 24)) window.scrollBy({ top: rect.top - Math.max(vh / 3, top + 16), behavior: "smooth" });
+  hlKeepVisible(u.el, rect);
+}
+/** Garde le paragraphe lu entièrement visible (3.1) : entre l'en-tête / la barre de lecture en haut et les onglets du bas.
+    Si le paragraphe est plus haut que la zone visible, c'est au moins la phrase lue qui reste entièrement visible. */
+function hlKeepVisible(el, sent) {
+  if (!el || !el.isConnected) return;
+  const vh = window.innerHeight || 600, bar = document.getElementById("tts-bar"), head = document.querySelector(".topbar"), nav = document.getElementById("bottom-nav");
+  const vis = x => x && !x.hidden && getComputedStyle(x).display !== "none" && getComputedStyle(x).visibility !== "hidden";
+  let top = 8;
+  if (vis(head) && getComputedStyle(head).position !== "static") top = Math.max(top, head.getBoundingClientRect().bottom);
+  if (vis(bar)) top = Math.max(top, bar.getBoundingClientRect().bottom);
+  top += 10;
+  let bottom = vh - 10;
+  if (vis(nav)) bottom = Math.min(bottom, nav.getBoundingClientRect().top - 10);
+  if (bottom - top < 80) bottom = top + 80;
+  const p = el.getBoundingClientRect(), s = sent && sent.height ? sent : p, room = bottom - top;
+  let dy = 0;
+  if (p.height <= room) {   // tout le paragraphe tient : on le montre en entier
+    if (p.top < top) dy = p.top - top; else if (p.bottom > bottom) dy = p.bottom - bottom;
+  } else if (s.top < top || s.bottom > bottom) {   // paragraphe trop long : la phrase lue en haut de la zone
+    dy = s.top - top - (s.height < room - 40 ? Math.min(40, room / 6) : 0);
+  }
+  if (Math.abs(dy) > 2) window.scrollBy({ top: dy, behavior: "smooth" });
 }
 /** Découpe un texte en phrases : liste de [début, fin] (espaces exclus). */
 function sentenceSpans(text, lang) {
@@ -947,7 +965,7 @@ function errorPanel(title, msg, hint) {
 // Numéro de version affiché discrètement à côté du logo (même numéro que l'APK : à changer à chaque version).
 const ESL_KEY = "ceh-esl";
 const eslOn = () => { try { return localStorage.getItem(ESL_KEY) === "1"; } catch { return false; } };
-const APP_VERSION = "3.0";
+const APP_VERSION = "3.1";
 function renderVersion() {
   if (document.getElementById("app-ver")) return;
   const brand = document.querySelector(".brand"); if (!brand) return;
@@ -2094,21 +2112,23 @@ function renderNav() {
       <span class="nav-ico" aria-hidden="true">${ico}</span><span class="nav-lbl">${esc(lbl)}</span></button>`).join("");
 }
 
-/* ---- Taille du texte (Paramètres) : agit sur la taille de base de la page (les tailles sont en rem). */
-const FS_KEY = "ceh-fs", FS_STEPS = [85, 90, 100, 110, 120, 135, 150];
-const fsGet = () => { try { const v = +localStorage.getItem(FS_KEY); return FS_STEPS.includes(v) ? v : 100; } catch { return 100; } };
-function fsSet(v) {
-  try { if (v === 100) localStorage.removeItem(FS_KEY); else localStorage.setItem(FS_KEY, String(v)); } catch { /* ignore */ }
-  document.documentElement.style.fontSize = v === 100 ? "" : v + "%";
-}
-fsSet(fsGet());
+/* ---- Tailles (Paramètres, 3.1, demande HB) : deux réglages séparés.
+   - texte de lecture (fiches, cours, questions) : variable --read-fs, appliquée par « zoom » sur les blocs de texte ;
+   - interface (menus, boutons, en-tête) : taille de base de la page (les tailles sont en rem), 100 % par défaut. */
+const FS_KEY = "ceh-fs", UI_KEY = "ceh-ui-fs", FS_STEPS = [85, 90, 100, 110, 120, 135, 150, 175, 200], UI_STEPS = [85, 90, 100, 110, 120, 135, 150];
+const lsStep = (k, steps) => { try { const v = +localStorage.getItem(k); return steps.includes(v) ? v : 100; } catch { return 100; } };
+const fsGet = () => lsStep(FS_KEY, FS_STEPS), uiGet = () => lsStep(UI_KEY, UI_STEPS);
+const lsStepSet = (k, v) => { try { if (v === 100) localStorage.removeItem(k); else localStorage.setItem(k, String(v)); } catch { /* ignore */ } };
+function fsSet(v) { lsStepSet(FS_KEY, v); document.documentElement.style.setProperty("--read-fs", String(v / 100)); }
+function uiSet(v) { lsStepSet(UI_KEY, v); document.documentElement.style.fontSize = v === 100 ? "" : v + "%"; }
+fsSet(fsGet()); uiSet(uiGet());
 
 /* ---- Onglet Paramètres : mise à jour, taille du texte, langue, thème, lecture audio, examen, compte. */
 function renderSettings() {
   stopTimer();
   state.view = "home"; renderNav();
   const fr = getLang() === "fr", L = (a, b) => (fr ? a : b);
-  const fs = fsGet(), th = currentTheme();
+  const fs = fsGet(), ui = uiGet(), th = currentTheme();
   const inApp = !!(nativeTTS && typeof nativeTTS.appVersion === "function");
   const voiceSel = l => {
     const vs = voiceList(l); if (!vs.length) return "";
@@ -2133,14 +2153,22 @@ function renderSettings() {
       </div>
     </section>
     <section class="panel set-card">
-      <h3 class="mono">🔠 ${L("Taille du texte", "Text size")}</h3>
+      <h3 class="mono">🔠 ${L("Taille du texte de lecture", "Reading text size")}</h3>
       <div class="row fs-row">
         <button class="btn btn-ghost btn-sm" id="fs-minus" ${fs === FS_STEPS[0] ? "disabled" : ""} aria-label="${L("Réduire", "Smaller")}">A−</button>
         <span class="mono fs-val">${fs} %</span>
         <button class="btn btn-ghost btn-sm" id="fs-plus" ${fs === FS_STEPS.at(-1) ? "disabled" : ""} aria-label="${L("Agrandir", "Larger")}">A+</button>
         ${fs !== 100 ? `<button class="btn btn-ghost btn-sm" id="fs-reset">${L("Taille normale", "Normal size")}</button>` : ""}
       </div>
-      <p class="muted small">${L("Aperçu : la question s'affiche à cette taille dans les QCM et les fiches.", "Preview: questions and sheets are shown at this size.")}</p>
+      <p class="muted small read-text">${L("Aperçu : le texte des fiches, du cours et des questions s'affiche à cette taille. Le reste de l'appli n'est pas touché.", "Preview: sheets, course and questions are shown at this size. The rest of the app is unchanged.")}</p>
+      <h3 class="mono" style="margin-top:1rem">🖥 ${L("Taille de l'interface", "Interface size")}</h3>
+      <div class="row fs-row">
+        <button class="btn btn-ghost btn-sm" id="ui-minus" ${ui === UI_STEPS[0] ? "disabled" : ""} aria-label="${L("Réduire", "Smaller")}">A−</button>
+        <span class="mono fs-val">${ui} %</span>
+        <button class="btn btn-ghost btn-sm" id="ui-plus" ${ui === UI_STEPS.at(-1) ? "disabled" : ""} aria-label="${L("Agrandir", "Larger")}">A+</button>
+        ${ui !== 100 ? `<button class="btn btn-ghost btn-sm" id="ui-reset">${L("Taille normale", "Normal size")}</button>` : ""}
+      </div>
+      <p class="muted small">${L("Menus, boutons, titres et onglets.", "Menus, buttons, titles and tabs.")}</p>
     </section>
     <section class="panel set-card">
       <h3 class="mono">🎨 ${L("Affichage", "Display")}</h3>
@@ -2181,6 +2209,8 @@ function renderSettings() {
   });
   const fsStep = dir => { const i = FS_STEPS.indexOf(fsGet()); fsSet(FS_STEPS[Math.max(0, Math.min(FS_STEPS.length - 1, i + dir))]); renderSettings(); };
   on("fs-minus", () => fsStep(-1)); on("fs-plus", () => fsStep(1)); on("fs-reset", () => { fsSet(100); renderSettings(); });
+  const uiStep = dir => { const i = UI_STEPS.indexOf(uiGet()); uiSet(UI_STEPS[Math.max(0, Math.min(UI_STEPS.length - 1, i + dir))]); renderSettings(); };
+  on("ui-minus", () => uiStep(-1)); on("ui-plus", () => uiStep(1)); on("ui-reset", () => { uiSet(100); renderSettings(); });
   app.querySelectorAll("[data-set-lang]").forEach(b => b.onclick = () => { const x = document.querySelector(`.topbar [data-lang="${b.dataset.setLang}"]`); if (x) x.click(); renderSettings(); });
   app.querySelectorAll("[data-set-theme]").forEach(b => b.onclick = () => { setTheme(b.dataset.setTheme); renderSettings(); });
   on("rate-minus", () => { setRate(-1); renderSettings(); }); on("rate-plus", () => { setRate(1); renderSettings(); });

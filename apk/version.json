@@ -1,7 +1,7 @@
 {
- "versionCode": 21,
- "versionName": "3.0",
+ "versionCode": 22,
+ "versionName": "3.1",
  "apk": "ceh-training.apk",
- "notes_fr": "Révision : section « Reprendre la lecture » en haut (3 dernières lectures + historique), position gardée dans le compte.",
- "notes": "Review: Resume reading section at the top (last 3 + history), position synced with the account."
+ "notes_fr": "Lecture : le paragraphe lu reste entièrement visible. Paramètres : taille du texte de lecture séparée de la taille de l'interface.",
+ "notes": "Reading: the paragraph being read stays fully visible. Settings: reading text size separate from interface size."
 }

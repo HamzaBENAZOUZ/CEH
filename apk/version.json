@@ -1,7 +1,7 @@
 {
- "versionCode": 11,
- "versionName": "2.0",
+ "versionCode": 12,
+ "versionName": "2.1",
  "apk": "ceh-training.apk",
- "notes_fr": "Résumé du livre complet : les 14 chapitres (environ 4 h 30 d'écoute).",
- "notes": "Book summary complete: all 14 chapters."
+ "notes_fr": "Nouvelle section 🎯 Expert CEH : pièges et questions probables dans chaque version de révision.",
+ "notes": "New 🎯 CEH expert section: traps and likely questions in every review version."
 }

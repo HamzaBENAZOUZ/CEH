@@ -7,6 +7,7 @@ import { DESTINATION } from "./destination.js";
 import { EXPRESS } from "./express-audio.js";
 import { DETAIL } from "./detail-audio.js";
 import { BOOK } from "./book-audio.js";
+import { EXPERT } from "./expert.js";
 REVISION.forEach(r => { if (REVAUDIO[r.id]) r.audio = REVAUDIO[r.id]; });   // volet « Version audio » des chapitres
 
 /** Vrai dans l'application Android (pont vocal AndroidTTS fourni par l'APK). */
@@ -29,6 +30,15 @@ const DX = DETAIL.map(r => ({ ...r, x: true, dx: true }));
 // Résumé du livre (1.6) : un résumé par chapitre (ids 201-214), tout en haut de l'onglet Révision
 const BK = BOOK.map(r => ({ ...r, x: true, bk: true }));
 const XPALL = [...XP, ...DX, ...BK];
+/* Section « Expert CEH » (2.1, demande HB) : pièges et questions probables, à la fin de chaque chapitre de chaque version
+   de révision (Résumé du livre, Dernier jour, Express) et en volet dans la Révision détaillée. */
+const EXPERT_H = { fr: "🎯 Expert CEH : pièges et questions probables", en: "🎯 CEH expert: traps and likely questions" };
+const EXPERT_INTRO = { fr: "Écoute bien, ce sont les points qui tombent le plus souvent.", en: "Listen carefully, these are the points that come up most often." };
+for (const [list, base] of [[XP, 0], [DX, 100], [BK, 200]]) for (const r of list) {
+  const e = EXPERT[r.id - base]; if (!e || r.id - base < 1 || r.id - base > 14) continue;
+  for (const L of Object.keys(r.audio)) if (e[L] && r.audio[L] && r.audio[L].length) r.audio[L] = [...r.audio[L], "## " + EXPERT_H[L], EXPERT_INTRO[L], ...e[L]];
+}
+REVISION.forEach(r => { const e = EXPERT[r.id - 600]; if (e) r.expert = e; });
 const XDOMS = ["X", "Y", "B"];
 const xpKey = dom => dom === "Y" ? "xd" : dom === "B" ? "bk" : "xp";
 const xpTitle = (r, lang) => r.title ? (r.title[lang] || r.title.fr) : t("cehDomain." + r.id, {}, lang);
@@ -927,7 +937,7 @@ function errorPanel(title, msg, hint) {
 // Numéro de version affiché discrètement à côté du logo (même numéro que l'APK : à changer à chaque version).
 const ESL_KEY = "ceh-esl";
 const eslOn = () => { try { return localStorage.getItem(ESL_KEY) === "1"; } catch { return false; } };
-const APP_VERSION = "2.0";
+const APP_VERSION = "2.1";
 function renderVersion() {
   if (document.getElementById("app-ver")) return;
   const brand = document.querySelector(".brand"); if (!brand) return;
@@ -2212,7 +2222,7 @@ function renderImprove() {
 
 /* ---- Onglet « Révision CEH » : une fiche par chapitre du Study Guide (résumé, préparer l'examen, à mémoriser),
    avec « Listen » (lecture en anglais) et, quand le site est en français, « Lire » (lecture en français). */
-const REV_PANES = ["sum", "tips", "mem"];
+const REV_PANES = ["sum", "tips", "mem", "expert"];
 const BOOK_PANES = ["bsum", "bess"];   // onglet « Livre CEH » : Summary / Exam Essentials (texte exact du livre)
 const revOpen = new Map();   // "section:chapitre" -> volet affiché
 /** Lignes d'un volet : fiche (revision.js) ou texte du livre (state.notes, version FR si elle existe). */
@@ -2233,8 +2243,8 @@ function revLines(r, pane, lang) {
 /** Ce que la voix dit pour annoncer un volet (pas le libellé du bouton : ni émoji, ni « Tout le chapitre », ni « Livre : Summary »).
  *  Vide = rien d'annoncé (le Résumé vient juste après le titre du chapitre). */
 const PANE_SAY = {
-  fr: { sum: "", all: "", audio: "", tips: "Pour préparer l'examen.", mem: "À retenir.", book: "Le résumé du livre.", bsum: "Le résumé du livre.", bess: "L'essentiel du livre pour l'examen." },
-  en: { sum: "", all: "", audio: "", tips: "Preparing for the exam.", mem: "Key points to remember.", book: "The book's summary.", bsum: "The book's summary.", bess: "The book's exam essentials." },
+  fr: { sum: "", all: "", audio: "", tips: "Pour préparer l'examen.", mem: "À retenir.", expert: "Expert CEH : les pièges et les questions probables. Écoute bien.", book: "Le résumé du livre.", bsum: "Le résumé du livre.", bess: "L'essentiel du livre pour l'examen." },
+  en: { sum: "", all: "", audio: "", tips: "Preparing for the exam.", mem: "Key points to remember.", expert: "CEH expert: the traps and the likely questions. Listen carefully.", book: "The book's summary.", bsum: "The book's summary.", bess: "The book's exam essentials." },
 };
 const paneSay = (p, l) => { const m = PANE_SAY[l === "fr" ? "fr" : "en"]; return p in m ? m[p] : null; };
 /** En-tête lu avant la fiche, surligné à l'écran comme le reste : le titre de la carte (« CH_13 Gestion… »)
@@ -2275,12 +2285,12 @@ function revPaneHtml(r, pane, lang) {
     for (const l of revLines(r, pane, lang)) {
       if (l.startsWith("- ")) { list.push(l.slice(2)); continue; }
       flush();
-      html += l.startsWith("## ") ? `<h4>${esc(l.slice(3))}</h4>` : l.startsWith("### ") ? `<h5>${esc(l.slice(4))}</h5>` : `<p>${esc(l)}</p>`;
+      html += l.startsWith("## ") ? `<h4${l.startsWith("## 🎯") ? ' class="expert-h"' : ""}>${esc(l.slice(3))}</h4>` : l.startsWith("### ") ? `<h5>${esc(l.slice(4))}</h5>` : `<p>${esc(l)}</p>`;
     }
     flush();
     return html;
   }
-  return `<ul class="rev-list">${revLines(r, pane, lang).map(x => `<li>${esc(x)}</li>`).join("")}</ul>`;
+  return `<ul class="rev-list${pane === "expert" ? " expert-list" : ""}">${revLines(r, pane, lang).map(x => `<li>${esc(x)}</li>`).join("")}</ul>`;
 }
 /* Révision CEH par domaine (11.4) : pour chacun des 8 domaines, la fiche Résumé Last Mile du domaine, puis ses chapitres
    à la file (fiche de révision + texte du livre). Remplace les onglets « Résumé Last Mile » et « Révision + Livre CEH ».

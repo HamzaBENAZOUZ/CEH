@@ -858,3 +858,7 @@ body.has-nav .speed-clock { bottom: calc(env(safe-area-inset-bottom, 0px) + 72px
 .set-line select { max-width: 100%; }
 .fs-row { align-items: center; }
 .fs-val { min-width: 4.5em; text-align: center; font-weight: 700; }
+/* Section « Expert CEH » (2.1) : pièges et questions probables, mise en avant */
+h4.expert-h { margin-top: 1.4em; padding: .45em .7em; border-left: 4px solid var(--accent, #d97706); background: color-mix(in srgb, var(--accent, #d97706) 12%, transparent); border-radius: 6px; }
+h4.expert-h ~ p { border-left: 2px solid color-mix(in srgb, var(--accent, #d97706) 45%, transparent); padding-left: .7em; }
+ul.expert-list li { border-left: 3px solid var(--accent, #d97706); padding-left: .6em; margin-bottom: .5em; }

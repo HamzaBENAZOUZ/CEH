@@ -1,7 +1,7 @@
 {
- "versionCode": 13,
- "versionName": "2.2",
+ "versionCode": 14,
+ "versionName": "2.3",
  "apk": "ceh-training.apk",
- "notes_fr": "Résumé du livre : chapitres 1 à 5 allongés (plus de détails, exemples et pièges d'examen).",
- "notes": "Book summary: chapters 1-5 lengthened (more detail, examples and exam traps)."
+ "notes_fr": "Résumé du livre : chapitres 6 à 10 allongés (web, sans fil, mobile et IoT, cloud, malwares et DoS).",
+ "notes": "Book summary: chapters 6-10 lengthened (web, wireless, mobile and IoT, cloud, malware and DoS)."
 }

@@ -501,12 +501,22 @@ function audioText(x, lang) {
 const ACR_WORDS = new Set(("NAT WEP SAML PASTA STRIDE DREAD VAST TRIKE OCTAVE OWASP SCADA RAID CASB SASE SABSA TOGAF COBIT ITIL COSO NIST FAIR ISACA CERT " +
   "LAND KRACK SPIT PIN HIPAA SOX COPPA FERPA FISMA ITAR EAR SCAP SHA REST SOAP JSON TOCTOU SAMM BSIMM IDEAL COTS RAD SAST DAST IAST SIEM SOAR " +
   "CSIRT CIRT SOC SCIM LDAP LDAPS RADIUS TACACS FIDO XACML PAM ABAC RBAC MAC DAC ISO MITRE ATTACK POP IMAP ARP IKE DNSSEC PAP CHAP EAP PEAP " +
-  "JPEG ASCII SIP NAC WAF VXLAN VLAN LAN WAN TKIP IMSI SIM MIME IDEA CISO PUF SYN ACK NATO UNIX BEST MOST PLUS MIEUX FIRST PRIMARY MAIN PREMIER PREMI SURTOUT MOINS VRAIE FAUSSE TRUE FALSE NOT PAS SAUF LEAST FEWEST HIGHEST MAINLY AVOIDED BEFORE MUST AVANT MINIMUM UPDATE SELECT WHERE BEGIN COMMIT FORTE VITER TEMPEST LEAP ACID COPE OVAL FAST SENTRY CAST POODLE BEAST GHOST SOCKS OASIS OAKLEY WORM PATRIOT CARROT HOSTS LAPS BIOS DARPA FEMA CNIL OSINT INERGEN SONET STAR ENISA FIPS SAN NAS GAAP CAIQ STIG").split(" "));
+  "JPEG ASCII SIP NAC WAF VXLAN VLAN LAN WAN TKIP IMSI SIM MIME IDEA CISO PUF SYN ACK NATO UNIX BEST MOST PLUS MIEUX FIRST PRIMARY MAIN PREMIER PREMI SURTOUT MOINS VRAIE FAUSSE TRUE FALSE NOT PAS SAUF LEAST FEWEST HIGHEST MAINLY AVOIDED BEFORE MUST AVANT MINIMUM UPDATE SELECT WHERE BEGIN COMMIT FORTE VITER TEMPEST LEAP ACID COPE OVAL FAST SENTRY CAST POODLE BEAST GHOST SOCKS OASIS OAKLEY WORM PATRIOT CARROT HOSTS LAPS BIOS DARPA FEMA CNIL OSINT INERGEN SONET STAR ENISA FIPS SAN NAS GAAP CAIQ STIG CRIME LOIC RUDY HUNT NIKTO SNORT WIRESHARK YAGI ZIGBEE DROWN HEIST FREAK").split(" "));
 /* Sigles épelés lettre par lettre, séparées par des espaces (avec des points, certaines voix disaient « point »). */
-/* Sigles épelés lettre par lettre, séparées par des espaces (avec des points, certaines voix disaient « point »). */
+/* Termes à casse mixte ou noms d'outils que les voix lisent mal (« DoS » lu « dos », « nmap » lu « némap »). */
+const SAY_TERMS = [[/\bDRDoS\b/g, "D R D O S"], [/\bDDoS\b/g, "D D O S"], [/\bDoS\b/g, "D O S"], [/\bIP[sS]ec\b/g, "I P sec"],
+  [/\bSQLi\b/g, "S Q L i"], [/\b[Nn]map\b/g, "N map"], [/\b[Hh]ping(\d?)\b/g, "H ping $1"], [/\bZenmap\b/g, "Zen map"],
+  [/\bmacOS\b/g, "mac O S"], [/\biOS\b/g, "i O S"], [/\bLoRaWAN\b/g, "Lora WAN"], [/\bOAuth\b/g, "O auth"]];
+const spellW = w => ACR_WORDS.has(w) ? w : w.split("").join(" ");
 function spellAcr(x, lang) {
   if (typeof x !== "string") return x;
-  return audioText(x, lang).replace(/\b[A-Z]{2,7}\b/g, w => ACR_WORDS.has(w) ? w : w.split("").join(" "));
+  let s = x.replace(/^\s*[-*•]\s+/, "");   // puce en début de ligne
+  for (const [re, to] of SAY_TERMS) s = s.replace(re, to);
+  return audioText(s, lang)
+    .replace(/\b([A-Z]{2,7})v(\d+)\b/g, (m, w, d) => `${spellW(w)} v ${d}`)    // SMBv1, SNMPv3, IPv6
+    .replace(/\b([A-Z]{2,7})(\d+)\b/g, (m, w, d) => `${spellW(w)} ${d}`)       // WPA2, MD5, POP3
+    .replace(/\b([A-Z]{2,7})s\b/g, (m, w) => ACR_WORDS.has(w) ? m : `${spellW(w)}s`)   // APIs, IDSs
+    .replace(/\b[A-Z]{2,7}\b/g, spellW);
 }
 /* Les émojis des libellés (« 📚 Tout le chapitre », « 📘 Livre ») ne sont pas lus à voix haute. */
 const noEmoji = x => String(x).replace(/[\p{Extended_Pictographic}\u{1F1E6}-\u{1F1FF}\uFE0F\u200D]/gu, "").replace(/\s{2,}/g, " ").trim();
@@ -917,7 +927,7 @@ function errorPanel(title, msg, hint) {
 // Numéro de version affiché discrètement à côté du logo (même numéro que l'APK : à changer à chaque version).
 const ESL_KEY = "ceh-esl";
 const eslOn = () => { try { return localStorage.getItem(ESL_KEY) === "1"; } catch { return false; } };
-const APP_VERSION = "1.8";
+const APP_VERSION = "1.9";
 function renderVersion() {
   if (document.getElementById("app-ver")) return;
   const brand = document.querySelector(".brand"); if (!brand) return;

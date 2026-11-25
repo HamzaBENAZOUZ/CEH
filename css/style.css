@@ -70,7 +70,7 @@ body {
   background-size: auto, 32px 32px, 32px 32px;
   color: var(--text);
   font-family: var(--sans);
-  font-size: 16px;
+  font-size: 1rem;
   line-height: 1.55;
   min-height: 100vh;
   display: flex;
@@ -832,3 +832,29 @@ body { overflow-wrap: break-word; }
 .rev-group-title { font-family: var(--display); font-size: 1.25rem; margin: 0 0 4px; }
 .rev-group > .muted { margin: 0 0 12px; }
 .domain-xp { margin-bottom: 18px; }
+
+/* ---------- barre d'onglets en bas (1.6) ---------- */
+.bottom-nav { position: fixed; z-index: 55; left: 0; right: 0; bottom: 0; display: flex; justify-content: space-around;
+  padding: 4px 4px calc(env(safe-area-inset-bottom, 0px) + 4px); background: var(--panel-solid); border-top: 1px solid var(--line-2);
+  box-shadow: 0 -8px 24px -12px rgba(0,0,0,.5); font-size: 16px; }
+.bottom-nav[hidden] { display: none; }
+.nav-tab { flex: 1 1 0; min-width: 0; max-width: 140px; display: flex; flex-direction: column; align-items: center; gap: 2px;
+  padding: 6px 2px; border: 0; border-radius: 10px; background: none; color: var(--muted); cursor: pointer; font-family: var(--sans); }
+.nav-ico { font-size: 20px; line-height: 1; filter: grayscale(1); opacity: .7; }
+.nav-lbl { font-size: 11px; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 100%; }
+.nav-tab[aria-current="page"] { color: var(--green); background: color-mix(in srgb, var(--green) 10%, transparent); }
+.nav-tab[aria-current="page"] .nav-ico { filter: none; opacity: 1; }
+.nav-tab:focus-visible { outline: 2px solid var(--green); outline-offset: -2px; }
+body.has-nav { padding-bottom: calc(env(safe-area-inset-bottom, 0px) + 64px); }
+body.has-nav .toast { bottom: calc(env(safe-area-inset-bottom, 0px) + 80px); }
+body.has-nav .update-bar { bottom: calc(env(safe-area-inset-bottom, 0px) + 76px); }
+body.has-nav .speed-clock { bottom: calc(env(safe-area-inset-bottom, 0px) + 72px); }
+
+/* ---------- Paramètres ---------- */
+.settings { display: grid; gap: 14px; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); margin-bottom: 24px; }
+.set-card h3 { color: var(--cyan); font-size: .95rem; margin: 0 0 10px; }
+.set-card .row { flex-wrap: wrap; }
+.set-line { display: flex; align-items: center; justify-content: space-between; gap: 10px; flex-wrap: wrap; margin: 8px 0; }
+.set-line select { max-width: 100%; }
+.fs-row { align-items: center; }
+.fs-val { min-width: 4.5em; text-align: center; font-weight: 700; }

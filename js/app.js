@@ -6,6 +6,7 @@ import { REVAUDIO } from "./revision-audio.js";
 import { DESTINATION } from "./destination.js";
 import { EXPRESS } from "./express-audio.js";
 import { DETAIL } from "./detail-audio.js";
+import { BOOK } from "./book-audio.js";
 REVISION.forEach(r => { if (REVAUDIO[r.id]) r.audio = REVAUDIO[r.id]; });   // volet « Version audio » des chapitres
 
 /** Vrai dans l'application Android (pont vocal AndroidTTS fourni par l'APK). */
@@ -16,15 +17,20 @@ const PASS = CFG.PASS_MARK || 70;
 const DOMAIN_IDS = [1, 2, 3, 4, 5, 6, 7, 8];
 /* Site CEH : QCM par chapitre (601-614, rédigés d'après le CEH Study Guide de Matt Walker) et Practice Exam du livre (701), dans la même base
    Supabase que le site CISSP. Les chapitres CISSP (1-112, 401-408) ne sont pas chargés. */
-const SECTIONS = ["revision", "ceh-guide", "ceh-practice", "ceh-isc2", "improve", "search"];
+const SECTIONS = ["revision", "ceh-guide", "ceh-practice", "ceh-isc2", "improve", "search", "settings"];
+// Onglet « QCM » (1.6, demande HB) : QCM par chapitre, Practice et Examen blanc regroupés, avec un choix en haut de l'onglet
+const QCM_SECS = ["ceh-guide", "ceh-practice", "ceh-isc2"];
 const DEF_SEC = "revision";
 const CEH_DOMS = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14];   // CEH : un « domaine » = un chapitre du livre
 // Révision express (3.32) : introduction (0), 6 domaines (1-6), dernier quart d'heure (7), volet unique « audio »
 const XP = EXPRESS.map(r => ({ ...r, x: true }));
 // Révision détaillée (CEH 1.2, environ 3 h) : même format que l'express, identifiants 100-115, en tête de l'onglet Révision
 const DX = DETAIL.map(r => ({ ...r, x: true, dx: true }));
-const XPALL = [...XP, ...DX];
-const xpKey = dom => dom === "Y" ? "xd" : "xp";
+// Résumé du livre (1.6) : un résumé par chapitre (ids 201-214), tout en haut de l'onglet Révision
+const BK = BOOK.map(r => ({ ...r, x: true, bk: true }));
+const XPALL = [...XP, ...DX, ...BK];
+const XDOMS = ["X", "Y", "B"];
+const xpKey = dom => dom === "Y" ? "xd" : dom === "B" ? "bk" : "xp";
 const xpTitle = (r, lang) => r.title ? (r.title[lang] || r.title.fr) : t("cehDomain." + r.id, {}, lang);
 const xpNum = () => "";   // CEH : le titre dit déjà « Chapitre n »
 /** Chapitres de ce site. */
@@ -849,7 +855,7 @@ const secCert = () => certOf(state.section);
 const secChapters = () => state.chapters.filter(c => secOf(c.id) === state.section);
 const secQuestions = () => state.questions.filter(q => secOf(q.chapter_id) === state.section);
 // « revision » : fiches « Révision CEH » (js/revision.js), sans questions ; visible dès que le Study Guide CEH est chargé.
-const hasSection = sec => (sec === "improve" || sec === "search") ? state.questions.length > 0 : sec === "revision" ? state.chapters.some(c => c.id > 600 && c.id < 700) : state.chapters.some(c => secOf(c.id) === sec);
+const hasSection = sec => sec === "settings" ? true : (sec === "improve" || sec === "search") ? state.questions.length > 0 : sec === "revision" ? state.chapters.some(c => c.id > 600 && c.id < 700) : state.chapters.some(c => secOf(c.id) === sec);
 const hasCeh = () => hasSection("ceh-guide") || hasSection("ceh-practice");
 /** Nom d'un domaine, selon la certification (8 domaines CISSP, 6 domaines CEH). */
 const domainName = (d, cert = secCert()) => t((cert === "ceh" ? "cehDomain." : "domain.") + d);
@@ -884,8 +890,9 @@ const refTag = q => `<span class="qref mono" title="${esc(getLang() === "fr" ? (
 function setSection(sec) {
   if (!hasSection(sec)) sec = certOf(sec) === "ceh" ? (hasSection("ceh-guide") ? "ceh-guide" : "ceh-practice") : DEF_SEC;
   state.section = sec;
-  try { localStorage.setItem("ceh-section", sec); } catch { /* ignore */ }
-  renderHome(); tvSync();
+  try { localStorage.setItem("ceh-section", sec); if (QCM_SECS.includes(sec)) localStorage.setItem("ceh-qcm-sub", sec); } catch { /* ignore */ }
+  if (/^#\/?(history|results)/.test(location.hash)) history.replaceState(null, "", "#/");
+  renderHome(); tvSync(); window.scrollTo(0, 0);
 }
 /** Passe d'une certification à l'autre en gardant le même type de banque (Study Guide / Practice Tests). */
 function setCert(cert) {
@@ -910,7 +917,7 @@ function errorPanel(title, msg, hint) {
 // Numéro de version affiché discrètement à côté du logo (même numéro que l'APK : à changer à chaque version).
 const ESL_KEY = "ceh-esl";
 const eslOn = () => { try { return localStorage.getItem(ESL_KEY) === "1"; } catch { return false; } };
-const APP_VERSION = "1.5";
+const APP_VERSION = "1.6";
 function renderVersion() {
   if (document.getElementById("app-ver")) return;
   const brand = document.querySelector(".brand"); if (!brand) return;
@@ -974,7 +981,7 @@ function toggleExamPop(force) {
     </div>`;
   pop.hidden = false;
   const inp = pop.querySelector("#exam-input");
-  const save = v => { lsExam(v); renderExam(); toggleExamPop(false); pushExamDate(v); };
+  const save = v => { lsExam(v); renderExam(); toggleExamPop(false); pushExamDate(v); if (state.view === "home" && state.section === "settings") renderSettings(); };
   pop.querySelector("#exam-ok").onclick = () => { if (inp.value) save(inp.value); else inp.focus(); };
   const clr = pop.querySelector("#exam-clear"); if (clr) clr.onclick = () => save("");
   inp.addEventListener("keydown", e => { if (e.key === "Enter" && inp.value) save(inp.value); });
@@ -1209,8 +1216,8 @@ function tvSync() {
     const head = r => revHead(r) + "\t" + revSpeech(r, "all", lang);
     tv.link.send({
       t: "sheet", ui: getLang(), lang, key: sec + ":D" + dom + ":all:" + lang,
-      kicker: t("rev.tab"), title: dom === "X" || dom === "Y" ? t(xpKey(dom) + ".title", {}, lang) : `CH${dom} · ${t("cehDomain." + dom, {}, lang)}`, pane: t(dom === "X" || dom === "Y" ? "xp.readAll" : "rev.readDomain", {}, lang),
-      head: dom === "X" || dom === "Y" ? "" : joinSpeech([(lang === "fr" ? "Chapitre " : "Chapter ") + dom, t("cehDomain." + dom, {}, lang)]),
+      kicker: t("rev.tab"), title: XDOMS.includes(dom) ? t(xpKey(dom) + ".title", {}, lang) : `CH${dom} · ${t("cehDomain." + dom, {}, lang)}`, pane: t(XDOMS.includes(dom) ? "xp.readAll" : "rev.readDomain", {}, lang),
+      head: XDOMS.includes(dom) ? "" : joinSpeech([(lang === "fr" ? "Chapitre " : "Chapter ") + dom, t("cehDomain." + dom, {}, lang)]),
       kind: "mixed", lines: rs.filter(r => lang === "fr" || !frOnly(r)).flatMap(r => { const ls = revLines(r, r.x ? "audio" : "all", lang); return ls.length ? ["# " + head(r), ...ls] : []; }),
     });
     return;
@@ -1219,7 +1226,7 @@ function tvSync() {
     const { sec, r, pane, lang } = tvRev;
     tv.link.send({
       t: "sheet", ui: getLang(), lang, key: sec + ":" + r.id + ":" + pane + ":" + lang,
-      kicker: r.x ? t(r.dx ? "xd.title" : "xp.title") : t("rev.tab"),
+      kicker: r.x ? t(r.bk ? "bk.title" : r.dx ? "xd.title" : "xp.title") : t("rev.tab"),
       title: revHead(r),
       pane: paneTitle(pane, lang), head: revSpeech(r, pane, lang),
       kind: ["sum", "audio", "bsum", "bess", "all"].includes(pane) ? "mixed" : "list", lines: revLines(r, pane, lang),
@@ -1269,7 +1276,7 @@ function tvCode() {
 }
 function renderTv() {
   document.body.classList.add("tv-mode");
-  state.view = "tv";
+  state.view = "tv"; renderNav();
   const code = tvCode();
   if (!tv) {
     const link = tvChannel(code, m => {
@@ -1519,7 +1526,10 @@ function autoGroups(lang) {
         subtitle: "CH" + ((chById(r.id) || {}).domain || "") + " · " + (fr ? "fiche" : "sheet") + (bk.length ? (fr ? " + livre" : " + book") : ""), lang,
         // le nom complet du chapitre est annoncé au début de la lecture
         parts: [(fr ? "Chapitre " : "Chapter ") + (r.id - 600) + ", " + chTitle(r.id) + ".", ...(au ? lines(r, ["audio"]) : lines(r, REV_PANES)), ...bk] }; };
-    // Révision détaillée (1.2) puis révision express : en premier dans la voiture
+    // Résumé du livre (1.6), révision dernier jour (1.2) puis révision express : en premier dans la voiture
+    groups.push({ title: t("bk.title", {}, lang), subtitle: fr ? "14 chapitres du livre, l'essentiel pour l'examen" : "14 book chapters, what matters for the exam",
+      items: BK.filter(r => r.audio[lang] && r.audio[lang].length).map(r => ({ key: "bk-" + r.id + "-" + lang, title: xpTitle(r, lang),
+        subtitle: t("bk.title", {}, lang), lang, parts: [joinSpeech([xpNum(r, lang), xpTitle(r, lang)]), ...revLines(r, "audio", lang).map(clean)] })) });
     groups.push({ title: t("xd.title", {}, lang), subtitle: fr ? "Introduction, 14 chapitres approfondis, dernier quart d'heure" : "Introduction, 14 chapters in depth, last quarter of an hour",
       items: DX.filter(r => r.audio[lang] && r.audio[lang].length).map(r => ({ key: "xd-" + r.id + "-" + lang, title: xpTitle(r, lang),
         subtitle: t("xd.title", {}, lang), lang, parts: [joinSpeech([xpNum(r, lang), xpTitle(r, lang)]), ...revLines(r, "audio", lang).map(clean)] })) });
@@ -1620,7 +1630,7 @@ async function boot() {
 async function start() {
   document.getElementById("user-label").textContent = state.session?.user?.email || "";
   document.getElementById("btn-logout").hidden = state.store.kind === "local";
-  state.view = "boot";
+  state.view = "boot"; renderNav();
   app.innerHTML = `<div class="boot"><p class="mono">&gt; ${esc(t("boot.load"))}<span class="cursor">_</span></p></div>`;
   try {
     const { chapters, questions, notes } = await state.store.loadContent();
@@ -1763,7 +1773,7 @@ const go = h => { if (location.hash === `#/${h}`) route(); else location.hash = 
 
 // ------------------------------------------------------------------ auth views
 function renderLogin(mode = "login") {
-  state.view = "login"; state.authMode = mode;
+  state.view = "login"; state.authMode = mode; renderNav();
   document.getElementById("user-label").textContent = "";
   document.getElementById("btn-logout").hidden = true;
   const signup = mode === "signup";
@@ -1806,7 +1816,7 @@ function renderLogin(mode = "login") {
 }
 
 function renderNewPassword() {
-  state.view = "newpw";
+  state.view = "newpw"; renderNav();
   app.innerHTML = `<section class="auth panel"><h1 class="mono">${esc(t("auth.newPassword"))}</h1>
     <form id="np" class="form"><label>${esc(t("auth.password"))}<input type="password" name="p" minlength="8" required autocomplete="new-password"></label>
     <button class="btn btn-primary">${esc(t("auth.save"))}</button></form></section>`;
@@ -1897,18 +1907,141 @@ function savedPanel() {
     }).join("")}</ul></section>`;
 }
 
-/** Une seule rangée d'onglets : CEH Study Guide / CEH Practice / Révision CEH
- *  (seulement ceux qui ont du contenu). Le chiffre est le nombre de questions (de fiches pour la révision). */
+/** Onglet QCM : choix entre QCM par chapitre, CEH Practice et Examen blanc (seulement ceux qui ont du contenu).
+ *  Le chiffre est le nombre de questions. Les grands onglets sont dans la barre du bas (renderNav). */
 function secTabs(sec) {
-  const nIn = s => s === "search" ? state.questions.length : s === "improve" ? mistakes().length : s === "revision" ? CEH_DOMS.length : state.questions.filter(q => secOf(q.chapter_id) === s).length;
-  const SEC_NAMES = { "ceh-guide": t("sec.ceh-guide"), "ceh-practice": "CEH Practice", "ceh-isc2": t("isc2.tab"), revision: t("rev.tabAll"), improve: getLang() === "fr" ? "Axes d'amélioration" : "Improvement areas",
-    search: getLang() === "fr" ? "🔎 Rechercher" : "🔎 Search" };
-  const secs = SECTIONS.filter(k => SEC_NAMES[k] && hasSection(k));
+  if (!QCM_SECS.includes(sec)) return "";
+  const nIn = s => state.questions.filter(q => secOf(q.chapter_id) === s).length;
+  const SEC_NAMES = { "ceh-guide": t("sec.ceh-guide"), "ceh-practice": "CEH Practice", "ceh-isc2": t("isc2.tab") };
+  const secs = QCM_SECS.filter(hasSection);
   return secs.length > 1 ? `
     <div class="seg sec-tabs" role="group" aria-label="${esc(t("sec.label"))}">
       ${secs.map(k => `<button class="seg-btn" data-section="${k}" aria-pressed="${k === sec}">${esc(SEC_NAMES[k])}
         <small class="mono">${nIn(k)}</small></button>`).join("")}
     </div>` : "";
+}
+/* ---- Barre d'onglets en bas de l'écran (1.6) : Révision, QCM, Axes d'amélioration, Rechercher, Paramètres.
+   Cachée pendant un quiz et sur l'écran de connexion. */
+const qcmSub = () => { let v = ""; try { v = localStorage.getItem("ceh-qcm-sub") || ""; } catch { /* ignore */ } return QCM_SECS.includes(v) && hasSection(v) ? v : (QCM_SECS.find(hasSection) || "ceh-guide"); };
+function renderNav() {
+  let nav = document.getElementById("bottom-nav");
+  const show = !!state.session && ["home", "history", "results"].includes(state.view) && !IS_TV;
+  document.body.classList.toggle("has-nav", show);
+  if (!show) { if (nav) nav.hidden = true; return; }
+  if (!nav) {
+    nav = document.createElement("nav"); nav.id = "bottom-nav"; nav.className = "bottom-nav";
+    document.body.appendChild(nav);
+    nav.addEventListener("click", e => {
+      const b = e.target.closest("[data-tab]"); if (!b) return;
+      stopSpeak();
+      setSection(b.dataset.tab === "qcm" ? qcmSub() : b.dataset.tab);
+    });
+  }
+  nav.hidden = false;
+  const fr = getLang() === "fr", cur = state.view === "home" ? (QCM_SECS.includes(state.section) ? "qcm" : state.section) : "qcm";
+  const tabs = [["revision", "📖", fr ? "Révision" : "Review"], ["qcm", "✅", "QCM"],
+    ["improve", "🎯", fr ? "À revoir" : "To review"], ["search", "🔎", fr ? "Rechercher" : "Search"], ["settings", "⚙️", fr ? "Paramètres" : "Settings"]]
+    .filter(([k]) => k === "settings" || (k === "qcm" ? QCM_SECS.some(hasSection) : hasSection(k)));
+  nav.setAttribute("aria-label", fr ? "Onglets" : "Tabs");
+  nav.innerHTML = tabs.map(([k, ico, lbl]) => `<button type="button" class="nav-tab" data-tab="${k}" aria-current="${k === cur ? "page" : "false"}">
+      <span class="nav-ico" aria-hidden="true">${ico}</span><span class="nav-lbl">${esc(lbl)}</span></button>`).join("");
+}
+
+/* ---- Taille du texte (Paramètres) : agit sur la taille de base de la page (les tailles sont en rem). */
+const FS_KEY = "ceh-fs", FS_STEPS = [85, 90, 100, 110, 120, 135, 150];
+const fsGet = () => { try { const v = +localStorage.getItem(FS_KEY); return FS_STEPS.includes(v) ? v : 100; } catch { return 100; } };
+function fsSet(v) {
+  try { if (v === 100) localStorage.removeItem(FS_KEY); else localStorage.setItem(FS_KEY, String(v)); } catch { /* ignore */ }
+  document.documentElement.style.fontSize = v === 100 ? "" : v + "%";
+}
+fsSet(fsGet());
+
+/* ---- Onglet Paramètres : mise à jour, taille du texte, langue, thème, lecture audio, examen, compte. */
+function renderSettings() {
+  stopTimer();
+  state.view = "home"; renderNav();
+  const fr = getLang() === "fr", L = (a, b) => (fr ? a : b);
+  const fs = fsGet(), th = currentTheme();
+  const inApp = !!(nativeTTS && typeof nativeTTS.appVersion === "function");
+  const voiceSel = l => {
+    const vs = voiceList(l); if (!vs.length) return "";
+    const cur = voicePref(l);
+    return `<label class="set-line"><span>${l === "fr" ? L("Voix française", "French voice") : L("Voix anglaise", "English voice")}</span>
+      <select data-set-voice="${l}"><option value="">${L("Par défaut", "Default")}</option>${vs.map(v => `<option value="${esc(v.name)}" ${v.name === cur ? "selected" : ""}>${esc(v.label)}</option>`).join("")}</select></label>`;
+  };
+  const d = examDate(), n = examDaysLeft();
+  app.innerHTML = `
+  <section class="hero">
+    <p class="mono kicker">&gt; root@ceh:~$ ./settings</p>
+    <h1>⚙️ ${L("Paramètres", "Settings")}</h1>
+  </section>
+  <div class="settings">
+    <section class="panel set-card">
+      <h3 class="mono">⬆️ ${L("Application", "App")}</h3>
+      <p class="muted">${L("Version installée", "Installed version")} : <strong class="mono">${APP_VERSION}</strong></p>
+      <div class="row">
+        ${inApp ? `<button class="btn btn-primary btn-sm" id="set-update">${L("Chercher une mise à jour", "Check for updates")}</button>`
+          : `<button class="btn btn-primary btn-sm" id="set-reload">${L("Charger la dernière version du site", "Load the latest site version")}</button>
+             <a class="btn btn-ghost btn-sm" href="apk/ceh-training.apk" download>${L("Télécharger l'appli Android", "Download the Android app")}</a>`}
+      </div>
+    </section>
+    <section class="panel set-card">
+      <h3 class="mono">🔠 ${L("Taille du texte", "Text size")}</h3>
+      <div class="row fs-row">
+        <button class="btn btn-ghost btn-sm" id="fs-minus" ${fs === FS_STEPS[0] ? "disabled" : ""} aria-label="${L("Réduire", "Smaller")}">A−</button>
+        <span class="mono fs-val">${fs} %</span>
+        <button class="btn btn-ghost btn-sm" id="fs-plus" ${fs === FS_STEPS.at(-1) ? "disabled" : ""} aria-label="${L("Agrandir", "Larger")}">A+</button>
+        ${fs !== 100 ? `<button class="btn btn-ghost btn-sm" id="fs-reset">${L("Taille normale", "Normal size")}</button>` : ""}
+      </div>
+      <p class="muted small">${L("Aperçu : la question s'affiche à cette taille dans les QCM et les fiches.", "Preview: questions and sheets are shown at this size.")}</p>
+    </section>
+    <section class="panel set-card">
+      <h3 class="mono">🎨 ${L("Affichage", "Display")}</h3>
+      <div class="set-line"><span>${L("Langue", "Language")}</span>
+        <div class="seg"><button class="seg-btn mono" data-set-lang="fr" aria-pressed="${fr}">FR</button><button class="seg-btn mono" data-set-lang="en" aria-pressed="${!fr}">EN</button></div></div>
+      <div class="set-line"><span>${L("Thème", "Theme")}</span>
+        <div class="seg"><button class="seg-btn" data-set-theme="dark" aria-pressed="${th === "dark"}">🌙 ${L("Sombre", "Dark")}</button><button class="seg-btn" data-set-theme="light" aria-pressed="${th === "light"}">☀️ ${L("Clair", "Light")}</button></div></div>
+    </section>
+    ${canSpeak ? `<section class="panel set-card">
+      <h3 class="mono">🔊 ${L("Lecture audio", "Audio reading")}</h3>
+      <div class="set-line"><span>${L("Vitesse", "Speed")}</span>
+        <div class="row"><button class="btn btn-ghost btn-sm" id="rate-minus" ${ttsRate === RATES[0] ? "disabled" : ""}>−</button>
+        <span class="mono fs-val">×${ttsRate}</span>
+        <button class="btn btn-ghost btn-sm" id="rate-plus" ${ttsRate === RATES.at(-1) ? "disabled" : ""}>+</button></div></div>
+      ${voiceSel("fr")}${voiceSel("en")}
+      ${canInstallVoices ? `<button class="btn btn-ghost btn-sm" id="set-voices">${L("Installer d'autres voix…", "Install more voices…")}</button>` : ""}
+    </section>` : ""}
+    <section class="panel set-card">
+      <h3 class="mono">📅 ${L("Examen", "Exam")}</h3>
+      <p class="muted">${d ? (n >= 0 ? L(`Examen le ${d.split("-").reverse().join("/")} (J-${n})`, `Exam on ${d} (${n} days left)`) : L("Date passée", "Date passed")) : L("Aucune date indiquée", "No date set")}</p>
+      <div class="row"><button class="btn btn-ghost btn-sm" id="set-exam">${L("Choisir la date d'examen", "Set the exam date")}</button></div>
+      <label class="esl-opt small"><input type="checkbox" id="set-esl" ${eslOn() ? "checked" : ""}> ${esc(t("home.esl"))}</label>
+    </section>
+    <section class="panel set-card">
+      <h3 class="mono">👤 ${L("Compte", "Account")}</h3>
+      <p class="muted mono small">${esc(state.session?.user?.email || L("Mode local", "Local mode"))}</p>
+      ${state.store && state.store.kind !== "local" ? `<button class="btn btn-ghost btn-sm" id="set-logout">${esc(t("top.logout"))}</button>` : ""}
+    </section>
+  </div>`;
+  const $ = id => document.getElementById(id), on = (id, f) => { const b = $(id); if (b) b.onclick = f; };
+  on("set-update", () => checkUpdate(true));
+  on("set-reload", async () => {
+    try {
+      if ("serviceWorker" in navigator) { const r = await navigator.serviceWorker.getRegistration(); if (r) await r.update(); }
+      if (navigator.onLine && window.caches) for (const k of await caches.keys()) await caches.delete(k);
+    } catch { /* ignore */ }
+    location.reload();
+  });
+  const fsStep = dir => { const i = FS_STEPS.indexOf(fsGet()); fsSet(FS_STEPS[Math.max(0, Math.min(FS_STEPS.length - 1, i + dir))]); renderSettings(); };
+  on("fs-minus", () => fsStep(-1)); on("fs-plus", () => fsStep(1)); on("fs-reset", () => { fsSet(100); renderSettings(); });
+  app.querySelectorAll("[data-set-lang]").forEach(b => b.onclick = () => { const x = document.querySelector(`.topbar [data-lang="${b.dataset.setLang}"]`); if (x) x.click(); renderSettings(); });
+  app.querySelectorAll("[data-set-theme]").forEach(b => b.onclick = () => { setTheme(b.dataset.setTheme); renderSettings(); });
+  on("rate-minus", () => { setRate(-1); renderSettings(); }); on("rate-plus", () => { setRate(1); renderSettings(); });
+  app.querySelectorAll("[data-set-voice]").forEach(s => s.onchange = () => setVoicePref(s.dataset.setVoice, s.value));
+  on("set-voices", () => nativeTTS.openVoiceSettings());
+  on("set-exam", e => { e.stopPropagation(); toggleExamPop(true); });
+  const esl = $("set-esl"); if (esl) esl.onchange = () => { try { localStorage.setItem(ESL_KEY, esl.checked ? "1" : ""); } catch { /* ignore */ } };
+  on("set-logout", () => $("btn-logout").click());
 }
 
 /* ---- Onglet « Axes d'amélioration » : alimenté par les mauvaises réponses (dernière réponse fausse à une question),
@@ -2115,7 +2248,7 @@ function revSpeech(r, pane, lang) {
  *  titre affiché (télé), volets non vides seulement, texte en français seulement (pas lu avec une voix anglaise). */
 const DEST_SAY = { fr: "Destination CEH, résumé du livre. ", en: "Destination CEH, book summary. " };
 const revHead = r => r.x ? xpTitle(r, getLang()) : r.lms ? "📗 Destination CEH · D" + r.id + " · " + domainName(r.id, "ceh") : `${chLabel(r.id)} · ${chTitle(chById(r.id)) || ""}`;
-const frOnly = r => !!(r.lms && r.sum && !r.sum.en);
+const frOnly = r => !!((r.lms && r.sum && !r.sum.en) || r.bk);   // résumé du livre : français seulement
 /** Volets d'un chapitre de la Révision fusionnée : fiche (Résumé, Préparer l'examen, À mémoriser), puis texte du livre. */
 const hasBook = id => !!(state.notes && state.notes.get(id));
 const allPanes = (r, lang) => r.x ? ["audio"] : r.lms ? REV_PANES.filter(p => (r[p] && (r[p].fr || r[p].en) || []).length) : [...REV_PANES, ...(hasBook(r.id) ? BOOK_PANES : [])];
@@ -2157,7 +2290,7 @@ function renderRevision() {
     const pane = paneOf(r), c = r.lms ? null : chById(r.id);
     return `
     <details class="rev-card${r.lms ? " rev-card-lms" : ""}${r.x ? " rev-card-xp" : ""}" data-rev="${r.x ? "X" : r.lms ? "L" : ""}${r.id}" ${revOpen.has(revKey(r)) ? "open" : ""}>
-      <summary>${r.x ? `<span class="ch-num mono">${(n => n >= 1 && n <= 14 ? "CH" + n : n ? "FIN" : "INTRO")(r.dx ? r.id - 100 : r.id)}</span> <span class="ch-title">${esc(xpTitle(r, lang))}</span>`
+      <summary>${r.x ? `<span class="ch-num mono">${(n => n >= 1 && n <= 14 ? "CH" + n : n ? "FIN" : "INTRO")(r.bk ? r.id - 200 : r.dx ? r.id - 100 : r.id)}</span> <span class="ch-title">${esc(xpTitle(r, lang))}</span>`
         : r.lms ? `<span class="ch-num mono">📗 Destination CEH</span> <span class="ch-title">${esc(t("rev.destTitle", { d: domainName(r.id, "ceh") }))}</span>`
         : `<span class="ch-num mono">${chLabel(r.id)}</span> <span class="ch-title">${esc(chTitle(c) || "")}</span>`}</summary>
       <div class="rev-body">
@@ -2187,7 +2320,7 @@ function renderRevision() {
           .replace(/🔊 Lire</, "🔊 " + esc(t("rev.readDomain", {}, "fr")) + "<").replace(/🔊 Listen</, "🔊 " + esc(t("rev.readDomain", {}, "en")) + "<")}</div></div>
       <div class="rev-grid">${rs.map(card).join("")}</div></section>`;
   }).join("");
-  const blocks = `<section class="rev-group"><h2 class="rev-group-title"><span class="mono accent">📘</span> ${esc(t("rd.title"))} · <span class="xp-total" data-chars="${chSize.chars}" data-units="${chSize.units}">${esc(readEstText(chSize.chars, chSize.units))}</span></h2>
+  const blocks = (BK.length ? xpBlock("B", BK) : "") + `<section class="rev-group"><h2 class="rev-group-title"><span class="mono accent">📘</span> ${esc(t("rd.title"))} · <span class="xp-total" data-chars="${chSize.chars}" data-units="${chSize.units}">${esc(readEstText(chSize.chars, chSize.units))}</span></h2>
       <p class="muted">${esc(t("rd.sub"))}</p>${chapters}</section>` + xpBlock("Y", DX) + xpBlock("X", XP);
   app.innerHTML = `
   <div id="offline-slot"></div>
@@ -2239,7 +2372,7 @@ function renderRevision() {
   // « Lire tout le domaine » : chaque fiche du domaine est ouverte sur « Tout », puis tout est lu à la suite (avec surlignage).
   app.querySelectorAll("[data-domspeak]").forEach(b => b.onclick = e => {
     e.preventDefault();
-    const sect = b.closest("[data-revdom]"), dom = ["X", "Y"].includes(sect.dataset.revdom) ? sect.dataset.revdom : +sect.dataset.revdom, l = b.dataset.domspeak, k = `revision:D${dom}:${l}`;
+    const sect = b.closest("[data-revdom]"), dom = XDOMS.includes(sect.dataset.revdom) ? sect.dataset.revdom : +sect.dataset.revdom, l = b.dataset.domspeak, k = `revision:D${dom}:${l}`;
     const cards = [...sect.querySelectorAll(".rev-card")].filter(d => l === "fr" || !frOnly(itemOf(d))), parts = [];   // résumé du livre : en français seulement
     // télé connectée : tout le domaine est lu sur la télé seulement (rien sur le téléphone)
     if (tv && tv.ok) { stopSpeak(); tvDomain(sec, dom, cards.map(itemOf), l); tvSpeak("sheet"); return; }
@@ -2301,7 +2434,7 @@ function searchResults() {
 }
 function renderSearch() {
   stopTimer();
-  state.view = "home";
+  state.view = "home"; renderNav();
   const fr = getLang() === "fr";
   const L = (a, b) => (fr ? a : b);
   const srcs = ["ceh-guide", "ceh-practice", "ceh-isc2"].filter(hasSection);
@@ -2423,8 +2556,9 @@ function paintSearchBar() {
 
 function renderHome() {
   stopTimer();
-  state.view = "home";
+  state.view = "home"; renderNav();
   if (!hasSection(state.section)) state.section = hasSection(DEF_SEC) ? DEF_SEC : "ceh-practice";
+  if (state.section === "settings") { renderSettings(); return; }
   if (state.section === "search") { renderSearch(); return; }
   if (state.section === "improve") { renderImprove(); return; }
   if (state.section === "revision") { renderRevision(); return; }
@@ -2704,7 +2838,7 @@ function startQuiz(opts, resume = null) {
 
 function renderQuiz() {
   stopSpeak();
-  state.view = "quiz";
+  state.view = "quiz"; renderNav();
   const z = state.quiz;
   const q = z.questions[z.i];
   // "peek" = afficher temporairement l'autre langue pour cette question
@@ -2865,7 +2999,7 @@ async function finishQuiz() {
 
 // ------------------------------------------------------------------ results
 function renderResults() {
-  state.view = "results";
+  state.view = "results"; renderNav();
   const r = state.lastResult;
   const score = pct(r.correct, r.total);
   const pass = score >= PASS;
@@ -2913,7 +3047,7 @@ function renderResults() {
 
 // ------------------------------------------------------------------ history
 function renderHistory() {
-  state.view = "history";
+  state.view = "history"; renderNav();
   const rows = state.attempts.map(a => {
     const s = pct(a.correct, a.total);
     return `<tr><td class="mono">${fmtDate(a.created_at)}</td><td>${esc(t("type." + a.mode))}${a.chapter_id ? ` · ${chLabel(a.chapter_id)}` : ""}</td>

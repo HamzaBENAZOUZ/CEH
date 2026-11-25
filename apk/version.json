@@ -1,7 +1,7 @@
 {
- "versionCode": 10,
- "versionName": "1.9",
+ "versionCode": 11,
+ "versionName": "2.0",
  "apk": "ceh-training.apk",
- "notes_fr": "Lecture audio : sigles mieux prononcés (DoS, WPA2, nmap…), puces non lues. Résumé du livre : chapitre 10.",
- "notes": "Audio: better pronunciation of acronyms (DoS, WPA2, nmap…), bullets not read. Book summary: chapter 10."
+ "notes_fr": "Résumé du livre complet : les 14 chapitres (environ 4 h 30 d'écoute).",
+ "notes": "Book summary complete: all 14 chapters."
 }

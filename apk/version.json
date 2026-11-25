@@ -1,7 +1,7 @@
 {
- "versionCode": 19,
- "versionName": "2.8",
+ "versionCode": 20,
+ "versionName": "2.9",
  "apk": "ceh-training.apk",
- "notes_fr": "Cours EC-Council : modules 11 à 15 ajoutés (Session hijacking, Evasion IDS/firewalls/honeypots, Web servers, Web applications, SQL injection).",
- "notes": "EC-Council course: modules 11 to 15 added (French only)."
+ "notes_fr": "Cours EC-Council complet : modules 16 à 20 (Wireless, Mobile, IoT/OT, Cloud, Cryptography) et glossaire en français.",
+ "notes": "EC-Council course complete: modules 16 to 20 and French glossary."
 }

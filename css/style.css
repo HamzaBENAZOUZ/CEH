@@ -826,3 +826,9 @@ body { overflow-wrap: break-word; }
 .domain-xp { border: 1px solid var(--accent, var(--green)); border-radius: 12px; padding: 12px; }
 .domain-xp > .muted { margin: 4px 0 10px; }
 .rev-card-xp { border-left: 3px solid var(--accent, var(--green)); }
+
+/* 1.3 : section « Révision détaillée » qui regroupe les 14 chapitres */
+.rev-group { border: 1px solid var(--line); border-radius: 12px; padding: 12px; margin-bottom: 18px; }
+.rev-group-title { font-family: var(--display); font-size: 1.25rem; margin: 0 0 4px; }
+.rev-group > .muted { margin: 0 0 12px; }
+.domain-xp { margin-bottom: 18px; }

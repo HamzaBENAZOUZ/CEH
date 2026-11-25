@@ -910,7 +910,7 @@ function errorPanel(title, msg, hint) {
 // Numéro de version affiché discrètement à côté du logo (même numéro que l'APK : à changer à chaque version).
 const ESL_KEY = "ceh-esl";
 const eslOn = () => { try { return localStorage.getItem(ESL_KEY) === "1"; } catch { return false; } };
-const APP_VERSION = "1.2";
+const APP_VERSION = "1.3";
 function renderVersion() {
   if (document.getElementById("app-ver")) return;
   const brand = document.querySelector(".brand"); if (!brand) return;
@@ -2177,14 +2177,18 @@ function renderRevision() {
           .replace(/🔊 Lire</, "🔊 " + esc(t("xp.readAll", {}, "fr")) + "<").replace(/🔊 Listen</, "🔊 " + esc(t("xp.readAll", {}, "en")) + "<")}</div></div>
       <p class="muted">${esc(t(k + ".sub"))}</p>
       <div class="rev-grid">${list.map(card).join("")}</div></section>`; };
-  const blocks = xpBlock("Y", DX) + CEH_DOMS.map(d => {   // 6 domaines CEH
+  // Ordre (demande HB, 1.3) : Révision détaillée (les 14 fiches), Révision dernier jour (≈ 3 h), Révision express (≈ 20 min)
+  const chSize = textSize(REVISION.flatMap(r => revLines(r, "all", lang)));
+  const chapters = CEH_DOMS.map(d => {   // 14 chapitres CEH
     const rs = [...LMS.filter(r => r.id === d), ...REVISION.filter(r => (chById(r.id) || {}).domain === d)];
     if (!rs.length) return "";
     return `<section class="domain" data-revdom="${d}"><div class="domain-head"><h2><span class="mono accent">CH${d}</span> ${esc(domainName(d, "ceh"))}</h2>
         <div class="row rev-speak">${speakBtns("data-domspeak", "Lire tout le domaine : chaque chapitre à la suite (cliquer à nouveau pour arrêter)", "Read the whole domain: each chapter in a row (click again to stop)")
           .replace(/🔊 Lire</, "🔊 " + esc(t("rev.readDomain", {}, "fr")) + "<").replace(/🔊 Listen</, "🔊 " + esc(t("rev.readDomain", {}, "en")) + "<")}</div></div>
       <div class="rev-grid">${rs.map(card).join("")}</div></section>`;
-  }).join("") + xpBlock("X", XP);
+  }).join("");
+  const blocks = `<section class="rev-group"><h2 class="rev-group-title"><span class="mono accent">📘</span> ${esc(t("rd.title"))} · <span class="xp-total" data-chars="${chSize.chars}" data-units="${chSize.units}">${esc(readEstText(chSize.chars, chSize.units))}</span></h2>
+      <p class="muted">${esc(t("rd.sub"))}</p>${chapters}</section>` + xpBlock("Y", DX) + xpBlock("X", XP);
   app.innerHTML = `
   <div id="offline-slot"></div>
   <section class="hero">

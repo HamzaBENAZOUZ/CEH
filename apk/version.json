@@ -1,7 +1,7 @@
 {
- "versionCode": 7,
- "versionName": "1.6",
+ "versionCode": 8,
+ "versionName": "1.7",
  "apk": "ceh-training.apk",
- "notes_fr": "Onglets en bas de l'écran, onglet QCM unique (QCM par chapitre, Practice, Examen blanc), nouvel onglet Paramètres (mise à jour, taille du texte, langue, thème, voix), début du Résumé du livre (chapitres 1 et 2).",
- "notes": "Bottom tab bar, single QCM tab (chapter quizzes, Practice, mock exam), new Settings tab (updates, text size, language, theme, voices), start of the Book summary (chapters 1 and 2)."
+ "notes_fr": "Résumé du livre : chapitres 1 à 5 (environ 1 h 50 d'écoute).",
+ "notes": "Book summary: chapters 1 to 5 (French, about 1 h 50 of listening)."
 }

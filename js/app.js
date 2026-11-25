@@ -120,6 +120,7 @@ function haltEngine() {
   if (nativeTTS) nativeTTS.stop(); else if (canSpeak) { speechSynthesis.cancel(); lastCancel = Date.now(); }
 }
 function stopSpeak() {
+  if (player && player.rd) rdUpdate(player, false, true);
   haltEngine();
   speakingId = null; player = null; hlClear(); keepAwake(false);
   const f = speakEnd; speakEnd = null; if (f) f();
@@ -128,6 +129,7 @@ function stopSpeak() {
 }
 function pauseSpeak() {
   if (!player || player.paused) return;
+  if (player.rd) rdUpdate(player, false, true);
   haltEngine(); player.paused = true; keepAwake(false); renderPlayer();
 }
 function resumeSpeak() {
@@ -542,8 +544,12 @@ function speakUnits(key, units, lang, btn, onEnd) {
   if (!units.some(u => u.text)) units = [];
   if (!units.length) { if (onEnd) onEnd(); return; }
   speakingId = key; speakEnd = onEnd || null; btn.classList.add("on");
-  player = { key, units, lang, btn, idx: 0, paused: false, title: mediaTitle(btn, units) };
-  playFrom(0);
+  player = { key, units, lang, btn, idx: 0, paused: false, title: mediaTitle(btn, units), rd: rdNext };
+  const start = Math.max(0, Math.min(units.length - 1, rdStartIdx || 0));
+  rdNext = null; rdStartIdx = 0;
+  player.idx = start;
+  if (player.rd) rdUpdate(player, false, true);
+  playFrom(start);
 }
 /** Lit les phrases du lecteur à partir de la n° « from », à la vitesse choisie. */
 function playFrom(from) {
@@ -551,9 +557,10 @@ function playFrom(from) {
   const units = P.units.slice(from), lang = P.lang;
   const seq = ++speakSeq, alive = () => seq === speakSeq && player === P;
   keepAwake(true);
-  let mark = i => { if (alive()) { P.idx = from + i; hlShow(units[i]); renderPlayer(); } };
+  let mark = i => { if (alive()) { P.idx = from + i; hlShow(units[i]); renderPlayer(); if (P.rd) rdUpdate(P); } };
   const done = () => {
     if (!alive()) return;
+    if (P.rd) rdUpdate(P, true, true);
     speakSeq++; speakingId = null; player = null; P.btn.classList.remove("on"); hlClear(); keepAwake(false);
     const f = speakEnd; speakEnd = null; if (f) f();
     renderPlayer();
@@ -940,7 +947,7 @@ function errorPanel(title, msg, hint) {
 // Numéro de version affiché discrètement à côté du logo (même numéro que l'APK : à changer à chaque version).
 const ESL_KEY = "ceh-esl";
 const eslOn = () => { try { return localStorage.getItem(ESL_KEY) === "1"; } catch { return false; } };
-const APP_VERSION = "2.9";
+const APP_VERSION = "3.0";
 function renderVersion() {
   if (document.getElementById("app-ver")) return;
   const brand = document.querySelector(".brand"); if (!brand) return;
@@ -1011,7 +1018,7 @@ function toggleExamPop(force) {
   setTimeout(() => inp.focus(), 50);
 }
 // le compte à rebours change à minuit : on le recalcule quand l'appli revient au premier plan
-document.addEventListener("visibilitychange", () => { if (!document.hidden) { renderExam(); syncExamDate(); } });
+document.addEventListener("visibilitychange", () => { if (!document.hidden) { renderExam(); syncExamDate(); rdSync(); } else rdPushNow(); });
 /** Envoie la date au compte ; en cas d'échec (hors ligne...), elle sera renvoyée à la prochaine synchro. */
 function pushExamDate(v) {
   const st = state.store; if (!st || typeof st.setExamDate !== "function" || !state.session) return;
@@ -1030,6 +1037,119 @@ async function syncExamDate(force = false) {
   if (r === undefined) return;
   if (r === null) { if (examDate()) await st.setExamDate(EXAM_FIELD, examDate()); return; }
   if (r !== examDate() && (r === "" || /^\d{4}-\d{2}-\d{2}$/.test(r))) { lsExam(r); renderExam(); }
+}
+
+// ------------------------------------------------------------------ reprise de lecture (3.0, demande HB)
+// Chaque lecture d'une fiche ou d'un domaine de Révision est mémorisée (phrase atteinte) : les 3 dernières
+// s'affichent en haut de Révision pour reprendre d'un geste, les autres sont rangées dans « Historique ».
+// Gardé sur l'appareil et dans le compte (user_metadata, comme la date d'examen) pour suivre l'utilisateur.
+const RD_KEY = "ceh-reading", RD_PEND = RD_KEY + "-pending", RD_FIELD = "ceh_reading", RD_MAX = 30, RD_SYNC_MAX = 12;
+let rdNext = null, rdStartIdx = 0, rdBoxAt = 0, rdPushT = null, rdSyncAt = 0, rdHistOpen = false;
+const rdTitle = el => { if (!el) return ""; const c = el.cloneNode(true); c.querySelectorAll(".xp-total, button").forEach(x => x.remove());
+  return c.textContent.replace(/\s+/g, " ").replace(/\s*·\s*$/, "").trim().slice(0, 80); };
+function rdList() {
+  try { const a = JSON.parse(localStorage.getItem(RD_KEY) || "[]"); return Array.isArray(a) ? a.filter(x => x && typeof x.k === "string" && x.t) : []; }
+  catch { return []; }
+}
+function rdStore(a) {
+  a = [...a].sort((x, y) => y.t - x.t).slice(0, RD_MAX);
+  try { localStorage.setItem(RD_KEY, JSON.stringify(a)); } catch { /* stockage indisponible */ }
+  return a;
+}
+const rdPend = v => { try { if (v) localStorage.setItem(RD_PEND, "1"); else localStorage.removeItem(RD_PEND); } catch { /* */ } };
+/** Enregistre la position du lecteur (phrase n° idx sur n). */
+function rdUpdate(P, finished = false, now = false) {
+  const m = P.rd; if (!m) return;
+  const n = P.units.length, e = { ...m, i: finished ? n : Math.min(P.idx, n), n, t: Date.now() };
+  rdStore([e, ...rdList().filter(x => x.k !== m.k)]);
+  rdPend(true);
+  if (now || Date.now() - rdBoxAt > 5000) { rdBoxAt = Date.now(); rdRenderBox(); }
+  rdPushSoon(now ? 1500 : 30000);
+}
+function rdPushSoon(ms) { if (rdPushT) { if (ms > 2000) return; clearTimeout(rdPushT); } rdPushT = setTimeout(rdPushNow, ms); }
+/** Envoie les lectures récentes au compte (les plus récentes seulement, pour garder la session légère). */
+async function rdPushNow() {
+  if (rdPushT) { clearTimeout(rdPushT); rdPushT = null; }
+  const st = state.store; if (!st || typeof st.setExamDate !== "function" || !state.session) return;
+  let pend = false; try { pend = localStorage.getItem(RD_PEND) === "1"; } catch { /* */ } if (!pend) return;
+  const a = rdList().slice(0, RD_SYNC_MAX);
+  if (await st.setExamDate(RD_FIELD, JSON.stringify(a))) rdPend(false);
+}
+/** Fusionne avec le compte : pour chaque lecture, la plus récente gagne (une suppression est gardée comme « del »). */
+async function rdSync(force = false) {
+  const st = state.store; if (!st || typeof st.getExamDate !== "function" || !state.session) return;
+  if (!force && Date.now() - rdSyncAt < 60000) return;
+  rdSyncAt = Date.now();
+  const r = await st.getExamDate(RD_FIELD); if (r === undefined) return;
+  let remote = []; try { remote = r ? JSON.parse(r) : []; } catch { remote = []; }
+  if (!Array.isArray(remote)) remote = [];
+  const local = rdList(), by = new Map();
+  [...local, ...remote].forEach(x => { if (x && typeof x.k === "string" && x.t) { const o = by.get(x.k); if (!o || x.t > o.t) by.set(x.k, x); } });
+  const merged = rdStore([...by.values()]);
+  const sig = a => JSON.stringify(a.slice(0, RD_SYNC_MAX).map(x => [x.k, x.t]));
+  if (sig(merged) !== sig(remote.filter(x => x && x.k).sort((a, b) => b.t - a.t))) { rdPend(true); rdPushNow(); }
+  if (sig(merged) !== sig(local)) rdRenderBox();
+}
+function rdAgo(t) {
+  const fr = getLang() === "fr", m = Math.round((Date.now() - t) / 60000);
+  if (m < 1) return fr ? "à l'instant" : "just now";
+  if (m < 60) return fr ? `il y a ${m} min` : `${m} min ago`;
+  const h = Math.round(m / 60); if (h < 24) return fr ? `il y a ${h} h` : `${h} h ago`;
+  const d = Math.round(h / 24); return fr ? `il y a ${d} j` : `${d} d ago`;
+}
+function rdRow(e) {
+  const fr = getLang() === "fr", done = e.i >= e.n, pct = e.n ? Math.round(100 * Math.min(e.i, e.n) / e.n) : 0;
+  const what = e.d ? (fr ? "domaine entier" : "whole domain") : "";
+  return `<div class="rd-row" data-rdk="${esc(e.k)}">
+    <div class="rd-info"><div class="rd-title">${esc(e.ti || e.k)}</div>
+      <div class="rd-meta"><span class="rd-bar"><span style="width:${pct}%"></span></span>
+        <span>${done ? (fr ? "terminé" : "finished") : `${pct} %`}${what ? " · " + what : ""} · ${e.l === "fr" ? "FR" : "EN"} · ${esc(rdAgo(e.t))}</span></div></div>
+    <div class="rd-act"><button class="btn btn-xs ${done ? "btn-ghost" : "btn-primary"}" data-rdgo>${done ? (fr ? "↻ Relire" : "↻ Replay") : (fr ? "▶ Reprendre" : "▶ Resume")}</button>
+      <button class="btn btn-ghost btn-xs" data-rddel title="${fr ? "Retirer de la liste" : "Remove from the list"}" aria-label="${fr ? "Retirer" : "Remove"}">✕</button></div>
+  </div>`;
+}
+/** Petite section « Reprendre la lecture » en haut de Révision. */
+function rdRenderBox() {
+  const box = document.getElementById("rd-box"); if (!box) return;
+  const fr = getLang() === "fr", a = rdList().filter(x => !x.del);
+  const h = box.querySelector("details.rd-hist"); if (h) rdHistOpen = h.open;
+  if (!a.length || !canSpeak) { box.hidden = true; box.innerHTML = ""; return; }
+  const top = a.slice(0, 3), rest = a.slice(3);
+  box.innerHTML = `<h2 class="rd-head"><span class="mono accent">▶</span> ${fr ? "Reprendre la lecture" : "Resume reading"}</h2>
+    <div class="rd-list">${top.map(rdRow).join("")}</div>
+    ${rest.length ? `<details class="rd-hist"${rdHistOpen ? " open" : ""}><summary>${fr ? "Historique" : "History"} (${rest.length})</summary><div class="rd-list">${rest.map(rdRow).join("")}</div></details>` : ""}`;
+  box.hidden = false;
+  box.querySelectorAll(".rd-row").forEach(row => {
+    const e = a.find(x => x.k === row.dataset.rdk); if (!e) return;
+    row.querySelector("[data-rdgo]").onclick = () => rdResume(e);
+    row.querySelector("[data-rddel]").onclick = () => {
+      rdStore([{ k: e.k, del: 1, t: Date.now() }, ...rdList().filter(x => x.k !== e.k)]);
+      rdPend(true); rdPushSoon(1500); rdRenderBox();
+    };
+  });
+}
+/** Reprend une lecture : ouvre la fiche (ou le domaine) et relance la lecture à la phrase mémorisée. */
+function rdResume(e) {
+  if (player && player.rd && player.rd.k === e.k) return;   // déjà en cours
+  const go = () => {
+    let btn = null;
+    if (e.c) {
+      const d = app.querySelector(`.rev-card[data-rev="${CSS.escape(e.c)}"]`); if (!d) return;
+      if (!d.open) d.open = true;
+      const pb = d.querySelector(`[data-revpane="${CSS.escape(e.p || "")}"]`);
+      if (pb && pb.getAttribute("aria-pressed") !== "true") pb.click();
+      btn = d.querySelector(`[data-revspeak="${e.l}"]`);
+      d.scrollIntoView({ block: "start", behavior: "smooth" });
+    } else if (e.d) {
+      const sect = app.querySelector(`[data-revdom="${CSS.escape(e.d)}"]`); if (!sect) return;
+      btn = sect.querySelector(`[data-domspeak="${e.l}"]`);
+    }
+    if (!btn) return;
+    stopSpeak();
+    rdStartIdx = e.i >= e.n ? 0 : e.i;
+    btn.click();
+  };
+  if (state.section !== "revision" || state.view !== "home") { setSection("revision"); setTimeout(go, 50); } else go();
 }
 
 // ------------------------------------------------------------------ mise à jour de l'appli Android
@@ -1673,7 +1793,7 @@ async function start() {
     applyStaticTexts();
     exportAuto();
     tvAutoConnect();
-    syncExamDate(true);
+    syncExamDate(true); rdSync(true);
     // Application Android : tout est téléchargé automatiquement pour pouvoir réviser hors ligne.
     if (IN_APP && state.store.kind === "supabase" && !state.store.offline && !offlineEnabled()) {
       state.store.downloadOffline({ chapters, questions, notes: notes || [] })
@@ -1696,6 +1816,7 @@ async function backOnline() {
     const pending = (await state.store.offlineInfo()).pending;
     if (await state.store.goOnline()) {
       syncExamDate(true);   // date d'examen changée hors ligne : envoyée au compte
+      rdSync(true);
       await refreshProgress();
       applyStaticTexts();
       if (state.view === "home" || state.view === "history") rerender();
@@ -2358,7 +2479,9 @@ function renderRevision() {
     <div class="row"><button class="btn btn-ghost btn-sm" id="rev-open-all">${esc(t("rev.openAll"))}</button>
       <button class="btn btn-ghost btn-sm" id="rev-close-all">${esc(t("rev.closeAll"))}</button></div>
   </section>
+  <section class="rd-box" id="rd-box" hidden></section>
   ${blocks}`;
+  rdRenderBox();
   app.querySelectorAll("[data-section]").forEach(b => b.onclick = () => { stopSpeak(); setSection(b.dataset.section); });
   const setPane = (d, r, pane, l = getLang()) => {
     revOpen.set(revKey(r), pane);
@@ -2392,6 +2515,7 @@ function renderRevision() {
       // Lecture dans l'autre langue : le texte lu est affiché le temps de la lecture, puis on remet la langue du site.
       let restore = null;
       if (l !== getLang()) { setPane(d, r, pane, l); restore = () => { if (d.isConnected && paneOf(r) === pane) setPane(d, r, pane); }; }
+      rdNext = { k: `c:${d.dataset.rev}:${pane}:${l}`, c: d.dataset.rev, p: pane, l, ti: rdTitle(d.querySelector("summary")) };
       speakUnits(k, speechUnits([...revIntro(d, r, pane, l), ...boxParts(d)], l), l, b, restore);
     });
   });
@@ -2411,6 +2535,7 @@ function renderRevision() {
       parts.push(...revIntro(d, r, p, l), ...boxParts(d));
     }
     const restore = l !== getLang() ? () => cards.forEach(d => { if (d.isConnected) { const r = itemOf(d); setPane(d, r, r.x ? "audio" : "all"); } }) : null;
+    rdNext = { k: `d:${dom}:${l}`, d: String(dom), l, ti: rdTitle(sect.querySelector(".domain-head h2, h2")) };
     speakUnits(k, speechUnits(parts, l), l, b, restore);
   });
   const all = open => () => app.querySelectorAll(".rev-card").forEach(d => { d.open = open; });

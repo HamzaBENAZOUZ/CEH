@@ -870,3 +870,16 @@ ul.expert-list li { border-left: 3px solid var(--accent, #d97706); padding-left:
 .rev-card .seg, .rev-panes { max-width: 100%; flex-wrap: wrap; }
 .rev-pane, .rev-pane p, .rev-pane li, .rev-pane h3, .rev-pane h4 { overflow-wrap: anywhere; }
 .rev-pane table, .rev-pane pre { display: block; max-width: 100%; overflow-x: auto; }
+/* 3.0 : Reprendre la lecture (en haut de Révision) */
+.rd-box { margin: 0 0 1.4rem; padding: .9rem 1rem; border: 1px solid var(--line-2); border-radius: 14px; background: var(--panel, var(--bg-2)); }
+.rd-head { font-size: 1.05rem; margin: 0 0 .6rem; }
+.rd-list { display: grid; gap: .5rem; }
+.rd-row { display: flex; align-items: center; gap: .7rem; flex-wrap: wrap; padding: .5rem .6rem; border-radius: 10px; background: var(--bg-2); min-width: 0; }
+.rd-info { flex: 1 1 200px; min-width: 0; }
+.rd-title { font-weight: 600; overflow-wrap: anywhere; }
+.rd-meta { display: flex; align-items: center; gap: .5rem; flex-wrap: wrap; font-size: .8rem; color: var(--muted); margin-top: .2rem; }
+.rd-bar { display: inline-block; width: 70px; height: 5px; border-radius: 3px; background: var(--line-2); overflow: hidden; }
+.rd-bar > span { display: block; height: 100%; background: var(--acc, var(--accent, #c33)); }
+.rd-act { display: flex; gap: .4rem; flex: 0 0 auto; }
+.rd-hist { margin-top: .6rem; }
+.rd-hist > summary { cursor: pointer; color: var(--muted); font-size: .9rem; margin-bottom: .5rem; }

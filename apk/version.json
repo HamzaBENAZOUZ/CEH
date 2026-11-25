@@ -1,7 +1,7 @@
 {
- "versionCode": 20,
- "versionName": "2.9",
+ "versionCode": 21,
+ "versionName": "3.0",
  "apk": "ceh-training.apk",
- "notes_fr": "Cours EC-Council complet : modules 16 à 20 (Wireless, Mobile, IoT/OT, Cloud, Cryptography) et glossaire en français.",
- "notes": "EC-Council course complete: modules 16 to 20 and French glossary."
+ "notes_fr": "Révision : section « Reprendre la lecture » en haut (3 dernières lectures + historique), position gardée dans le compte.",
+ "notes": "Review: Resume reading section at the top (last 3 + history), position synced with the account."
 }

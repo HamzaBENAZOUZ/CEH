@@ -1136,6 +1136,7 @@ function rdRow(e) {
 }
 /** Petite section « Reprendre la lecture » en haut de Révision. */
 function rdRenderBox() {
+  nowRenderBox();
   const box = document.getElementById("rd-box"); if (!box) return;
   const fr = getLang() === "fr", a = rdList().filter(x => !x.del);
   const h = box.querySelector("details.rd-hist"); if (h) rdHistOpen = h.open;
@@ -1152,6 +1153,47 @@ function rdRenderBox() {
       rdStore([{ k: e.k, del: 1, t: Date.now() }, ...rdList().filter(x => x.k !== e.k)]);
       rdPend(true); rdPushSoon(1500); rdRenderBox();
     };
+  });
+}
+/* ---- « Maintenant » (3.2, A11 + A27) : trois raccourcis en haut de Révision, calculés à partir des données déjà là
+   (lectures récentes, quiz sauvegardés, erreurs, questions marquées). Rien n'est enregistré de plus.
+   - Continuer : la lecture pas finie la plus récente, ou le quiz sauvegardé s'il est plus récent ;
+   - Écouter : la première fiche de chapitre jamais écoutée jusqu'au bout ;
+   - À revoir aujourd'hui : erreurs (dernière réponse fausse) + questions marquées, 20 au plus, mélangées. */
+const TODAY_MAX = 20;
+function todayQs() {
+  const seen = new Set(), out = [];
+  for (const q of [...mistakes(), ...flagged()]) if (!seen.has(q.id)) { seen.add(q.id); out.push(q); }
+  return out;
+}
+function nowRenderBox() {
+  const box = document.getElementById("now-box"); if (!box) return;
+  const fr = getLang() === "fr", L = (a, b) => (fr ? a : b);
+  const reads = rdList().filter(x => !x.del);
+  const cont = canSpeak ? reads.find(x => x.i < x.n) : null;
+  const sq = loadSaved()[0] || null;
+  const useQuiz = sq && (!cont || (sq.savedAt || 0) > cont.t);
+  const done = new Set(reads.filter(x => x.c && x.i >= x.n).map(x => x.c));
+  const nextR = canSpeak ? REVISION.find(r => !done.has(String(r.id)) && !(cont && cont.c === String(r.id))) : null;
+  const tq = todayQs();
+  const items = [];
+  if (useQuiz) items.push(`<button class="now-btn" data-now="quiz"><span class="now-ico" aria-hidden="true">▶</span><span class="now-txt"><b>${L("Continuer", "Continue")}</b><span class="muted small">${esc(labelOf(sq.lab) || L("Quiz sauvegardé", "Saved quiz"))}</span></span></button>`);
+  else if (cont) items.push(`<button class="now-btn" data-now="read"><span class="now-ico" aria-hidden="true">▶</span><span class="now-txt"><b>${L("Continuer", "Continue")}</b><span class="muted small">${esc(cont.ti || "")} · ${cont.n ? Math.round(100 * cont.i / cont.n) : 0} %</span></span></button>`);
+  if (nextR) items.push(`<button class="now-btn" data-now="listen"><span class="now-ico" aria-hidden="true">🎧</span><span class="now-txt"><b>${L("Écouter", "Listen")}</b><span class="muted small">${esc(chLabel(nextR.id))} · ${esc(chTitle(chById(nextR.id)) || "")}</span></span></button>`);
+  if (tq.length) items.push(`<button class="now-btn" data-now="today"><span class="now-ico" aria-hidden="true">🎯</span><span class="now-txt"><b>${L("À revoir aujourd'hui", "Review today")}</b><span class="muted small">${L(`${Math.min(tq.length, TODAY_MAX)} questions (erreurs et marquées)`, `${Math.min(tq.length, TODAY_MAX)} questions (mistakes and marked)`)}</span></span></button>`);
+  if (!items.length) { box.hidden = true; box.innerHTML = ""; return; }
+  box.innerHTML = `<h2 class="rd-head"><span class="mono accent">⚡</span> ${L("Maintenant", "Now")}</h2><div class="now-grid">${items.join("")}</div>`;
+  box.hidden = false;
+  const on = (k, f) => { const b = box.querySelector(`[data-now="${k}"]`); if (b) b.onclick = f; };
+  on("quiz", () => resumeQuiz(sq.id));
+  on("read", () => rdResume(cont));
+  on("listen", () => {
+    const l = fr && canSpeakFr ? "fr" : "en";
+    rdResume({ k: `now:${nextR.id}`, c: String(nextR.id), p: "all", l, i: 0, n: 1 });
+  });
+  on("today", () => {
+    const qs = shuffle(todayQs()).slice(0, TODAY_MAX);
+    startQuiz({ mode: "mistakes", chapter_id: null, lab: { k: "today", n: qs.length }, questions: qs, feedback: true });
   });
 }
 /** Reprend une lecture : ouvre la fiche (ou le domaine) et relance la lecture à la phrase mémorisée. */
@@ -2526,6 +2568,7 @@ function renderRevision() {
     <div class="row"><button class="btn btn-ghost btn-sm" id="rev-open-all">${esc(t("rev.openAll"))}</button>
       <button class="btn btn-ghost btn-sm" id="rev-close-all">${esc(t("rev.closeAll"))}</button></div>
   </section>
+  <section class="rd-box now-box" id="now-box" hidden></section>
   <section class="rd-box" id="rd-box" hidden></section>
   ${blocks}`;
   rdRenderBox();
@@ -2920,6 +2963,7 @@ function labelOf(lab) {
     case "mistakesDom": return t("mode.mistakesCh", { n: (lab.c === "ceh" ? "CEH " : "") + "CH" + lab.d });
     case "mistakes": return t("mode.mistakes");
     case "flagged": return t("mode.flagged");
+    case "today": return (getLang() === "fr" ? "À revoir aujourd'hui" : "Review today") + ` · ${lab.n} Q`;
     case "errorsOf": return t("mode.errorsOf", { label: labelOf(lab.of) });
     case "search": return (getLang() === "fr" ? "Sélection" : "Selection") + (lab.n === 1 && lab.r ? ` · ${lab.r}` : ` · ${lab.n} Q`);
     default: return "";

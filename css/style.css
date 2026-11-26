@@ -891,3 +891,11 @@ ul.expert-list li { border-left: 3px solid var(--accent, #d97706); padding-left:
    pas d'effet glitch. Le thème C|EH reste celui par défaut. */
 :root[data-calm="1"] #matrix, :root[data-calm="1"] .scanlines { display: none !important; }
 :root[data-calm="1"] .glitch::before, :root[data-calm="1"] .glitch::after { display: none !important; animation: none !important; }
+/* 3.2 (A11 + A27) : bloc « Maintenant » en haut de Révision. */
+.now-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 210px), 1fr)); gap: .5rem; }
+.now-btn { display: flex; align-items: center; gap: .7rem; text-align: left; padding: .7rem .8rem; border-radius: 10px; border: 1px solid var(--line-2);
+  background: var(--bg-2); color: var(--text); font: inherit; cursor: pointer; min-width: 0; }
+.now-btn:hover { border-color: var(--acc, var(--green)); }
+.now-ico { font-size: 1.3rem; flex: 0 0 auto; }
+.now-txt { display: flex; flex-direction: column; gap: .15rem; min-width: 0; }
+.now-txt .small { overflow-wrap: anywhere; }

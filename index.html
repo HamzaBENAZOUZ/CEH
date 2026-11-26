@@ -11,7 +11,23 @@
   <meta name="theme-color" content="#0b0b0d">
   <link rel="preload" href="assets/fonts/montserrat.woff2" as="font" type="font/woff2" crossorigin>
   <link rel="preload" href="assets/fonts/inter.woff2" as="font" type="font/woff2" crossorigin>
-  <link rel="stylesheet" href="css/style.css">
+  <link rel="stylesheet" href="css/style.css?v=3.12">
+  <script>
+    // Version du site : chaque fichier JS/CSS est demandé avec « ?v=<version> ». Comme index.html est toujours
+    // revérifié par un rafraîchissement normal, une nouvelle version change les adresses et le navigateur
+    // ne peut plus resservir l'ancienne copie de son cache. À changer à chaque version (tools/bump-version.sh).
+    window.CEH_BUILD = "3.12";
+    (function () {
+      // Import map : les « import ... from "./store.js" » de app.js reçoivent aussi le « ?v= ».
+      // Tout nouveau module js/*.js doit être ajouté à cette liste.
+      var mods = ["app", "store", "i18n", "offline", "revision", "revision-audio", "destination", "express-audio",
+        "detail-audio", "book-audio", "cours-audio", "expert"], map = {};
+      mods.forEach(function (m) { map["./js/" + m + ".js"] = "./js/" + m + ".js?v=" + window.CEH_BUILD; });
+      var s = document.createElement("script"); s.type = "importmap";
+      s.textContent = JSON.stringify({ imports: map });
+      document.currentScript.after(s);
+    })();
+  </script>
   <script>
     // Applique le thème avant l'affichage (évite un flash).
     (function () {
@@ -61,8 +77,8 @@
   </footer>
 
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.min.js"></script>
-  <script src="js/config.js"></script>
-  <script src="js/matrix.js"></script>
-  <script type="module" src="js/app.js"></script>
+  <script src="js/config.js?v=3.12"></script>
+  <script src="js/matrix.js?v=3.12"></script>
+  <script type="module" src="js/app.js?v=3.12"></script>
 </body>
 </html>

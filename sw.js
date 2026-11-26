@@ -24,7 +24,11 @@ self.addEventListener("fetch", e => {
   e.respondWith((async () => {
     const cache = await caches.open(CACHE);
     try {
-      const res = await fetch(req);
+      // Fichiers du site : « no-cache » = toujours revérifier auprès du serveur (304 si inchangé), sinon le
+      // cache HTTP du navigateur (10 min sur GitHub Pages) resservait l'ancienne version après un rafraîchissement.
+      const own = url.host === self.location.host;
+      const res = await fetch(!own ? req : req.mode === "navigate" ? new Request(req.url, { cache: "no-cache", credentials: "same-origin" })
+        : new Request(req, { cache: "no-cache" }));
       if (res.ok || res.type === "opaque") cache.put(req, res.clone());
       return res;
     } catch (err) {

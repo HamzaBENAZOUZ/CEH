@@ -1,7 +1,7 @@
 {
- "versionCode": 29,
- "versionName": "3.8",
+ "versionCode": 30,
+ "versionName": "3.9",
  "apk": "ceh-training.apk",
- "notes_fr": "Nouveau style « Cyberpunk » (sombre et clair), à choisir dans Paramètres > Affichage > Style. « Classique » remet l'ancien look.",
- "notes": "New 'Cyberpunk' style (dark and light), in Settings > Display > Style. 'Classic' brings back the previous look."
+ "notes_fr": "Le site se met à jour avec un simple rafraîchissement (plus de version bloquée en cache), et un bandeau propose de recharger quand une nouvelle version sort.",
+ "notes": "A normal refresh now loads the latest site version (no more stale cache), and a banner offers to reload when a new version is out."
 }

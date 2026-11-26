@@ -554,13 +554,15 @@ function spellAcr(x, lang) {
   if (typeof x !== "string") return x;
   let s = x.replace(/^\s*[-*•]\s+/, "");   // puce en début de ligne
   for (const [re, to] of SAY_TERMS) s = s.replace(re, to);
-  // 3.4 (demande HB) : en français, une lettre p seule (option -p de nmap/hping, flag P, nombre premier p) était lue « page ».
-  if (/^fr/i.test(lang || "")) s = s.replace(/(?<![\p{L}\p{N}])[pP](?![\p{L}\p{N}])/gu, "pé");
-  return audioText(s, lang)
+  const fr = /^fr/i.test(lang || "");
+  const out = audioText(s, lang)
     .replace(/\b([A-Z]{2,7})v(\d+)\b/g, (m, w, d) => `${spellW(w)} v ${d}`)    // SMBv1, SNMPv3, IPv6
     .replace(/\b([A-Z]{2,7})(\d+)\b/g, (m, w, d) => `${spellW(w)} ${d}`)       // WPA2, MD5, POP3
     .replace(/\b([A-Z]{2,7})s\b/g, (m, w) => ACR_WORDS.has(w) ? m : `${spellW(w)}s`)   // APIs, IDSs
     .replace(/\b[A-Z]{2,7}\b/g, spellW);
+  // 3.4 (demande HB, photo Android Auto) : en français, une lettre p seule était lue « page » : le P final des sigles épelés
+  // (« F T P; », « S M T P », « T C P et U D P »), l'option -p de nmap/hping, le flag P. Elle est maintenant dite « pé ».
+  return fr ? out.replace(/(?<![\p{L}\p{N}])[pP](?![\p{L}\p{N}])/gu, "pé") : out;
 }
 /* Les émojis des libellés (« 📚 Tout le chapitre », « 📘 Livre ») ne sont pas lus à voix haute. */
 const noEmoji = x => String(x).replace(/[\p{Extended_Pictographic}\u{1F1E6}-\u{1F1FF}\uFE0F\u200D]/gu, "").replace(/\s{2,}/g, " ").trim();

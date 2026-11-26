@@ -2,6 +2,6 @@
  "versionCode": 25,
  "versionName": "3.4",
  "apk": "ceh-training.apk",
- "notes_fr": "Lecture en français : la lettre p seule (options -p, flag P) est lue « pé » et non plus « page ».",
- "notes": "French reading: a lone letter p (-p options, P flag) is no longer read as 'page'."
+ "notes_fr": "Lecture en français et Android Auto : le P des sigles épelés (F T P, S M T P, T C P) et des options -p est lu « pé » et non plus « page ».",
+ "notes": "French reading and Android Auto: the P of spelled acronyms (FTP, SMTP, TCP) and -p options is no longer read as 'page'."
 }

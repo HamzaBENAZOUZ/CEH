@@ -910,3 +910,59 @@ ul.expert-list li { border-left: 3px solid var(--accent, #d97706); padding-left:
 .pg-bars { display: flex; flex-direction: column; gap: 3px; }
 .pg-bars .rd-bar { width: 80px; }
 .pg-cov > span { background: var(--muted) !important; }
+
+/* 3.8 (demande HB) : style « Cyberpunk » en option (Paramètres > Affichage > Style). Le style « Classique » (charte C|EH)
+   reste celui par défaut : sans html[data-skin], rien ne change. Variante claire juste après. */
+html[data-skin="cyber"] {
+  --bg: #07061a; --panel: rgba(20, 14, 48, .78); --panel-solid: #120d2e;
+  --line: rgba(5, 217, 232, .18); --line-2: rgba(255, 42, 109, .38);
+  --text: #f2ecff; --muted: #a59bd0; --bg-2: rgba(255, 255, 255, .06);
+  --green: #00f5a0; --cyan: #05d9e8; --red: #ff2a6d; --amber: #f9f002;
+  --acc: #05d9e8; --acc-soft: rgba(5, 217, 232, .12); --acc-fg: #9ff6ff;
+  --grad: linear-gradient(100deg, #ff2a6d 0%, #b026ff 55%, #05d9e8 100%);
+  --topbar: rgba(7, 6, 26, .75); --opt-bg: rgba(12, 9, 34, .7);
+  --aur-1: rgba(255, 42, 109, .28); --aur-2: rgba(5, 217, 232, .22); --aur-3: rgba(176, 38, 255, .22);
+  --glow: 0 0 0 1px rgba(5, 217, 232, .6), 0 0 26px -6px rgba(255, 42, 109, .7);
+  --radius: 0px;
+  --display: "Montserrat", sans-serif;
+}
+html[data-skin="cyber"] body { background-image:
+    radial-gradient(60vw 45vh at 0% 0%, var(--aur-1), transparent 70%),
+    radial-gradient(55vw 45vh at 100% 10%, var(--aur-2), transparent 70%),
+    radial-gradient(70vw 50vh at 50% 110%, var(--aur-3), transparent 70%),
+    linear-gradient(transparent 0 calc(100% - 1px), rgba(5,217,232,.06) 0);
+  background-size: auto, auto, auto, 100% 40px; }
+html[data-skin="cyber"] :is(.panel, .chapter-card, .rev-card, .stat, .review, .opt, .explain) {
+  clip-path: polygon(0 0, calc(100% - 14px) 0, 100% 14px, 100% 100%, 14px 100%, 0 calc(100% - 14px)); }
+html[data-skin="cyber"] .rev-card, html[data-skin="cyber"] .chapter-card { border-left: 3px solid var(--red) !important; }
+html[data-skin="cyber"] h1 { text-transform: uppercase; letter-spacing: .04em; background: var(--grad); -webkit-background-clip: text; background-clip: text; color: transparent; }
+html[data-skin="cyber"] :is(.kicker, .section-title, .badge) { text-transform: uppercase; letter-spacing: .12em; }
+html[data-skin="cyber"] :is(.btn, .seg-btn, .tts-btn, .icon-btn) { border-radius: 0; }
+html[data-skin="cyber"] .btn-primary { clip-path: polygon(10px 0, 100% 0, calc(100% - 10px) 100%, 0 100%); padding-left: 1.4em; padding-right: 1.4em; }
+html[data-skin="cyber"] :is(.seg, .badge, .toast, .tts-bar, select, input, .qdot, .bar, .bar span, .progress, .progress span, .opt-key, .scenario) { border-radius: 0; }
+html[data-skin="cyber"] .opt.selected { border-color: var(--red); background: rgba(255, 42, 109, .12); }
+html[data-skin="cyber"] .brand-logo, html[data-skin="cyber"] .hero-logo { border-radius: 0; box-shadow: 3px 3px 0 var(--red), -3px -3px 0 var(--cyan); }
+html[data-skin="cyber"] ::highlight(tts) { background-color: rgba(249, 240, 2, .30); color: #fffbd0; }
+html[data-skin="cyber"] .tts-on { background: rgba(249, 240, 2, .2); box-shadow: 0 0 0 3px rgba(249, 240, 2, .2); }
+
+html[data-skin="cyber"][data-theme="light"] {
+  --bg: #f6f3ff; --panel: rgba(255, 255, 255, .82); --panel-solid: #ffffff;
+  --line: rgba(8, 145, 178, .22); --line-2: rgba(225, 29, 99, .35);
+  --text: #1a1433; --muted: #5f5880; --bg-2: rgba(26, 20, 51, .05);
+  --green: #0f8a5f; --cyan: #0e7490; --red: #d1124f; --amber: #a16207;
+  --acc: #0e7490; --acc-soft: rgba(14, 116, 144, .10); --acc-fg: #0b5f76;
+  --grad: linear-gradient(100deg, #e11d63 0%, #8b2fd9 55%, #0891b2 100%);
+  --topbar: rgba(255, 255, 255, .78); --opt-bg: rgba(255, 255, 255, .85);
+  --aur-1: #ffd3e3; --aur-2: #cdf5fb; --aur-3: #eadcff;
+  --glow: 0 0 0 1px rgba(14, 116, 144, .45), 0 10px 26px -14px rgba(209, 18, 79, .45);
+}
+html[data-skin="cyber"][data-theme="light"] body { background-image:
+    radial-gradient(60vw 45vh at 0% 0%, var(--aur-1), transparent 70%),
+    radial-gradient(55vw 45vh at 100% 10%, var(--aur-2), transparent 70%),
+    radial-gradient(70vw 50vh at 50% 110%, var(--aur-3), transparent 70%),
+    linear-gradient(transparent 0 calc(100% - 1px), rgba(14,116,144,.07) 0);
+  background-size: auto, auto, auto, 100% 40px; }
+html[data-skin="cyber"][data-theme="light"] .opt.selected { background: rgba(209, 18, 79, .08); }
+html[data-skin="cyber"][data-theme="light"] ::highlight(tts) { color: inherit; }
+html[data-skin="cyber"][data-theme="light"] .tts-on { color: inherit; }
+html[data-skin="cyber"] .nav-tab[aria-current="page"] { color: var(--acc); background: var(--acc-soft); box-shadow: inset 0 2px 0 var(--red); }

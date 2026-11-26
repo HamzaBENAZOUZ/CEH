@@ -585,7 +585,7 @@ function audioText(x, lang) {
 }
 /* Sigles lus lettre par lettre : « TCP » devient « T.C.P » (sinon certaines voix disent « tcep »).
    Les sigles qui se prononcent comme un mot restent tels quels. Le texte affiché ne change pas. */
-const ACR_WORDS = new Set(("NAT WEP SAML PASTA STRIDE DREAD VAST TRIKE OCTAVE OWASP SCADA RAID CASB SASE SABSA TOGAF COBIT ITIL COSO NIST FAIR ISACA CERT " +
+const ACR_WORDS = new Set(("HOME NET LOCAL MACHINE CURRENT USER CLASSES ROOT CONFIG OR AND FROM UNION DROP TABLE INSERT INTO VALUES WAITFOR DELAY EXEC NULL ANY NAT WEP SAML PASTA STRIDE DREAD VAST TRIKE OCTAVE OWASP SCADA RAID CASB SASE SABSA TOGAF COBIT ITIL COSO NIST FAIR ISACA CERT " +
   "LAND KRACK SPIT PIN HIPAA SOX COPPA FERPA FISMA ITAR EAR SCAP SHA REST SOAP JSON TOCTOU SAMM BSIMM IDEAL COTS RAD SAST DAST IAST SIEM SOAR " +
   "CSIRT CIRT SOC SCIM LDAP LDAPS RADIUS TACACS FIDO XACML PAM ABAC RBAC MAC DAC ISO MITRE ATTACK POP IMAP ARP IKE DNSSEC PAP CHAP EAP PEAP " +
   "JPEG ASCII SIP NAC WAF VXLAN VLAN LAN WAN TKIP IMSI SIM MIME IDEA CISO PUF SYN ACK NATO UNIX BEST MOST PLUS MIEUX FIRST PRIMARY MAIN PREMIER PREMI SURTOUT MOINS VRAIE FAUSSE TRUE FALSE NOT PAS SAUF LEAST FEWEST HIGHEST MAINLY AVOIDED BEFORE MUST AVANT MINIMUM UPDATE SELECT WHERE BEGIN COMMIT FORTE VITER TEMPEST LEAP ACID COPE OVAL FAST SENTRY CAST POODLE BEAST GHOST SOCKS OASIS OAKLEY WORM PATRIOT CARROT HOSTS LAPS BIOS DARPA FEMA CNIL OSINT INERGEN SONET STAR ENISA FIPS SAN NAS GAAP CAIQ STIG CRIME LOIC RUDY HUNT NIKTO SNORT WIRESHARK YAGI ZIGBEE DROWN HEIST FREAK ZAP BURP SHODAN").split(" "));
@@ -601,11 +601,105 @@ const SAY_TERMS = [[/\bDRDoS\b/g, "D R D O S"], [/\bDDoS\b/g, "D D O S"], [/\bDo
   [/\b[Ii]fconfig\b/g, "I F config"], [/\b[Ww]hois\b/g, "who is"], [/\b[Dd]nsenum\b/g, "D N S enum"],
   [/\benum4linux\b/gi, "enum for linux"], [/\b[Aa]rpspoof\b/g, "arp spoof"], [/\bNetBIOS\b/g, "Net BIOS"],
   [/\bPowerShell\b/g, "Power Shell"], [/\bOpenVAS\b/g, "Open VAS"], [/\bWi-?Fi\b/gi, "Wifi"], [/\bBeEF\b/g, "beef"],
-  [/\bWannaCry\b/g, "Wanna Cry"], [/\bJtR\b/g, "John the Ripper"], [/\bsnmpwalk\b/gi, "S N M P walk"], [/\bsmbclient\b/gi, "S M B client"]];
+  [/\bWannaCry\b/g, "Wanna Cry"], [/\bJtR\b/g, "John the Ripper"], [/\bsnmpwalk\b/gi, "S N M P walk"], [/\bsmbclient\b/gi, "S M B client"],
+  // 3.14 : commandes du CEH lues comme un seul mot par les voix
+  [/\bwhoami\b/g, "who am I"], [/\bchmod\b/g, "C H mod"], [/\bchown\b/g, "C H own"], [/\bwget\b/g, "W get"],
+  [/\bauditpol\b/gi, "audit pol"], [/\bwevtutil\b/gi, "W E V T util"], [/\bclearev\b/gi, "clear E V"], [/\btimestomp\b/gi, "time stomp"],
+  [/\bnbtstat\b/gi, "N B T stat"], [/\bfping\b/gi, "F ping"], [/\bnetdiscover\b/gi, "net discover"], [/\baxfr\b/gi, "A X F R"],
+  [/\bregedit\b/gi, "reg edit"], [/\btcptraceroute\b/gi, "T C P traceroute"], [/\btracert\b/gi, "trace R T"], [/\bHTTrack\b/gi, "H T track"],
+  [/\bPsExec\b/gi, "P S exec"], [/\bhashcat\b/gi, "hash cat"], [/\bsearchsploit\b/gi, "search sploit"], [/\bdnsrecon\b/gi, "D N S recon"],
+  [/\bgobuster\b/gi, "go buster"], [/\bwpscan\b/gi, "W P scan"], [/\bmacof\b/g, "mac of"], [/\bcrackmapexec\b/gi, "crack map exec"],
+  [/\brpcclient\b/gi, "R P C client"], [/\bshowmount\b/gi, "show mount"], [/\bsmbmap\b/gi, "S M B map"], [/\bldapsearch\b/gi, "L D A P search"],
+  [/\bcmdshell\b/g, "C M D shell"], [/\bpasswd\b/g, "pass W D"], [/\bLHOST\b/g, "L host"], [/\bLPORT\b/g, "L port"], [/\bRHOSTS?\b/g, m => m.length > 5 ? "R hosts" : "R host"],
+  [/\bgpedit\b/g, "G P edit"], [/\bsecpol\b/g, "sec pol"], [/\bcompmgmt\b/g, "comp M G M T"], [/\beventvwr\b/g, "event viewer"], [/\bunshadow\b/g, "un shadow"],
+  [/\b(snmp|smtp|smb|ldap|dns|ftp|ssh|nfs|rpc|http)(?=-\w)/g, m => m.toUpperCase().split("").join(" ")], [/\bHKEY\b/g, "H key"],
+  [/\bwindump\b/gi, "win dump"], [/\bnetcat\b/gi, "net cat"], [/\bncat\b/gi, "N cat"], [/\bmeterpreter\b/gi, "meter preter"]];
+/* 3.14 (demande HB) : les commandes sont lues comme on les dit à voix haute. « nmap -sS -p 80 » devient
+   « nmap tiret s S tiret p 80 », « /etc/shadow » « slash E T C slash shadow », « --flood » « double tiret flood ».
+   Le texte affiché ne change pas : seule la voix (téléphone, site, voiture) reçoit cette version. */
+const CMD_SAY = {
+  fr: { dash: "tiret", ddash: "double tiret", cap: c => `${c} majuscule`, slash: "slash", bslash: "antislash", dot: "point",
+    colon: "deux points", eq: "égal", eqeq: "double égal", neq: "différent de", pipe: "pipe", pipe2: "double pipe",
+    amp: "et commercial", amp2: "double et commercial", dollar: "dollar", pct: "pour cent", at: "arobase", star: "étoile",
+    tilde: "tilde", under: "underscore", q: "point d'interrogation", excl: "point d'exclamation", gt: "chevron", quote: "apostrophe" },
+  en: { dash: "dash", ddash: "double dash", cap: c => `capital ${c}`, slash: "slash", bslash: "backslash", dot: "dot",
+    colon: "colon", eq: "equals", eqeq: "double equals", neq: "not equal", pipe: "pipe", pipe2: "double pipe",
+    amp: "ampersand", amp2: "double ampersand", dollar: "dollar", pct: "percent", at: "at", star: "star",
+    tilde: "tilde", under: "underscore", q: "question mark", excl: "exclamation mark", gt: "greater than", quote: "quote" }
+};
+// noms courts que les voix lisent comme un mot (« etc » devient « et cetera », « tcp » « técépé ») : épelés en majuscules
+const CMD_UP = new Set("etc ip tcp udp dns http https icmp mtu arp smb ftp ssh smtp snmp ldap sql php asp aspx html xml msc exe dll sh txt pdf xls sys ini cfg conf jsp cgi".split(" "));
+const CMD_CTX = /(?:^|[\s(\["'«=])(?:--?[A-Za-z]|~?\.{0,2}\/\w|[A-Z]:\\)|:\/\/|\b(?:nmap|hping3?|nslookup|netstat|nbtstat|tcpdump|sqlmap|hashcat|hydra|wget|curl|chmod|chown|auditpol|wevtutil|unshadow|sudo|msfvenom|msfconsole|traceroute|tracert|ncat|netcat|fping|whoami)\b/i;
+function cmdWord(w, long) {
+  if (!w) return "";
+  if (/^\d+$/.test(w)) return w;
+  if (CMD_UP.has(w.toLowerCase())) return w.toUpperCase();
+  if (long || /^[a-z]{4,}$/.test(w)) return /[aeiouy]/i.test(w) ? w : w.split("").join(" ");
+  return w;
+}
+/** Un morceau de commande sans espace (chemin, URL, nom de fichier, identifiant) : chaque séparateur est dit en toutes lettres. */
+function cmdToken(t, L) {
+  const SEP = { "/": L.slash, "\\": L.bslash, ".": L.dot, ":": L.colon, "=": L.eq, "?": L.q, "&": L.amp, "_": L.under, "*": L.star, "~": L.tilde, "-": L.dash, "$": L.dollar, "@": L.at };
+  return t.split(/([\/\\.:=?&_*~$@-])/).filter(x => x !== "").map(x => SEP[x] || cmdWord(x)).join(" ");
+}
+function sayCmd(x, lang) {
+  const L = CMD_SAY[/^fr/i.test(lang || "") ? "fr" : /^en/i.test(lang || "") ? "en" : /[àâçéèêëîïôûùœ]/i.test(x) ? "fr" : "en"];
+  const ctx = CMD_CTX.test(x);
+  let s = x
+    // URL : http://site/page?id=1
+    .replace(/\b(https?|ftp):\/\/([^\s"'<>()]*[^\s"'<>().,;])/g, (m, sc, r) => `${sc.toUpperCase()} ${L.colon} ${L.slash} ${L.slash} ${cmdToken(r, L)}`)
+    // chemin Windows : C:\Windows\System32\config\SAM
+    .replace(/\b([A-Z]):\\([\w.\\$-]*[\w$])/g, (m, d, r) => `${d} ${L.colon} ${L.bslash} ${cmdToken(r, L)}`)
+    // chemin Unix ou option Windows : /etc/shadow, ~/.bash_history, ../../, dir /r, auditpol /get /category:*
+    .replace(/(^|[\s(\["'«=])((?:~|\.\.?)?\/(?:[\w.*~$-]+\/?)*)(?=$|[\s,;:)\]"'»]|\.(?:\s|$))/g, (m, pre, p) =>
+      p === "/" ? m : pre + cmdToken(p, L))
+    // « find / » : la racine ; payload Metasploit windows/meterpreter/reverse_tcp (pas « et/ou »)
+    .replace(/\bfind \/(?=\s)/g, `find ${L.slash}`)
+    .replace(/(^|[\s(])([a-z][\w-]*(?:\/[a-z][\w-]*)+)(?=$|[\s,;:)])/g, (m, pre, t) =>
+      ctx && !/^(?:et|ou|and|or)$/.test(t.split("/")[1]) ? pre + cmdToken(t, L) : m)
+    .replace(/(^|\s)\.\.(?=%)/g, `$1${L.dot} ${L.dot} `).replace(/(^|\s)\?(?=\w)/g, `$1${L.q} `)
+    // options : -sS, -p-, -T0, --flood, --top-ports, -perm (les nombres négatifs hors commande restent « moins »)
+    .replace(/(^|[\s(\["'«=,])(--?)([A-Za-z0-9][\w-]*)(?=$|[\s,;:.)\]"'»=])/g, (m, pre, d, body) => {
+      if (d === "-" && /^\d/.test(body) && !ctx) return m;
+      const long = d === "--" || /^[a-z]{4,}(?:-|$)/.test(body);
+      const words = [d === "--" ? L.ddash : L.dash];
+      body.split("-").forEach((p, i) => {
+        if (i) words.push(L.dash);
+        if (!p) return;
+        if (long) { words.push(cmdWord(p, true)); return; }
+        if (/^[A-Z]$/.test(p)) { words.push(L.cap(p)); return; }
+        words.push((p.match(/\d+|[A-Za-z]/g) || [p]).join(" "));
+      });
+      return pre + words.join(" ");
+    })
+    // commentaire SQL « -- » et apostrophe isolée : ' OR 1=1 --
+    .replace(/(^|\s)--(?=\s|$|['"])/g, `$1${L.ddash}`)
+    .replace(/(^|\s)'(?=\s)/g, `$1${L.quote}`).replace(/(?<=\w)'(?=\s+(?:--|double tiret|double dash))/g, ` ${L.quote}`)
+    // fichiers cachés et identifiants pointés : .htaccess, rockyou.txt, ip.addr, tcp.flags.syn, NTDS.dit, crt.sh
+    .replace(/(^|\s)@(?=\w)/g, `$1${L.at} `)
+    .replace(/(^|[\s(\["'«=:])\.([A-Za-z][\w-]+)/g, (m, pre, w) => `${pre}${L.dot} ${cmdToken(w, L)}`)
+    .replace(/(^|[^\w.\/\\@-])([A-Za-z][\w-]+(?:\.[a-z][\w-]+)+)(?![\w])/g, (m, pre, t) =>
+      t.split(".").some(p => p.length < 2) ? m : pre + cmdToken(t, L))
+    // opérateurs et caractères spéciaux
+    .replace(/==/g, ` ${L.eqeq} `).replace(/!=/g, ` ${L.neq} `).replace(/&&/g, ` ${L.amp2} `).replace(/\|\|/g, ` ${L.pipe2} `)
+    .replace(/(?<=[\w'"])=(?=[\w'"<.…-])/g, ` ${L.eq} `)
+    .replace(/\*(?=\.)|(?<=[-:]\s?)\*|(?<=\bSELECT\s)\*/g, ` ${L.star} `)
+    .replace(/(?<=\b[a-z][A-Za-z]+):(?=[A-Za-z]| (?:étoile|star)\b)/g, ` ${L.colon} `)
+    .replace(/%(u[0-9a-fA-F]{4}|[0-9a-fA-F]{2})(?![g-zG-Z])/g, (m, h) => ` ${L.pct} ${h.split("").join(" ")} `)
+    .replace(/!(?=[$\w])/g, ` ${L.excl} `).replace(/(^|\s)!(?=\s+[a-z$])/g, `$1${L.excl}`)
+    .replace(/\$(?=[A-Za-z_$]|\d+\$)|(?<=[\w$])\$/g, ` ${L.dollar} `)
+    .replace(/\s>\s(?=[A-Z])/g, ", ")   // menus : Statistics > Conversations
+    .replace(/(?<=[\p{Ll}\p{N}])_(?=[\p{L}\p{N}])|(?<=[\p{L}\p{N}])_(?=[\p{Ll}\p{N}])/gu, ` ${L.under} `);   // xp_cmdshell (pas HKEY_LOCAL_MACHINE)
+  // dans une commande seulement : pipe, redirection, « ! » seul, « $1 », mots courts sans voyelle épelés (ls, rm, nc, cd)
+  if (ctx) s = s.replace(/(^|\s)\|(?=\s)/g, `$1${L.pipe}`).replace(/(?<=\w) > (?=[a-z])/g, ` ${L.gt} `)
+    .replace(/(^|\s)!(?=[\s,])/g, `$1${L.excl}`).replace(/\$(?=\d)/g, `${L.dollar} `)
+    .replace(/(?<![\p{L}\p{N}'-])[b-df-hj-np-tv-xz]{2,4}(?![\p{L}\p{N}'-])/gu, w => w.split("").join(" "));
+  return s.replace(/ {2,}/g, " ");
+}
 const spellW = w => ACR_WORDS.has(w) ? w : w.split("").join(" ");
 function spellAcr(x, lang) {
   if (typeof x !== "string") return x;
-  let s = x.replace(/^\s*[-*•]\s+/, "");   // puce en début de ligne
+  let s = sayCmd(x.replace(/^\s*[-*•]\s+/, ""), lang);   // puce en début de ligne, puis commandes (3.14)
   for (const [re, to] of SAY_TERMS) s = s.replace(re, to);
   const fr = /^fr/i.test(lang || "");
   const out = audioText(s, lang)

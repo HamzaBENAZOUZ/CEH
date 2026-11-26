@@ -433,12 +433,13 @@ function hlKeepVisible(el, sent) {
   if (vis(nav)) bottom = Math.min(bottom, nav.getBoundingClientRect().top - 10);
   if (bottom - top < 80) bottom = top + 80;
   const p = el.getBoundingClientRect(), s = sent && sent.height ? sent : p, room = bottom - top;
+  // 3.3 (demande HB) : on garde de l'avance. La phrase lue doit rester dans le haut de la zone visible (au-dessus de 55 %),
+  // pour qu'une ou deux phrases suivantes soient déjà visibles en dessous. Dès qu'elle passe plus bas, la page remonte
+  // et la remet vers le quart haut de la zone. Avant, la page ne bougeait qu'une fois la dernière ligne visible atteinte.
+  const low = top + room * 0.55, aim = top + room * 0.25;
   let dy = 0;
-  if (p.height <= room) {   // tout le paragraphe tient : on le montre en entier
-    if (p.top < top) dy = p.top - top; else if (p.bottom > bottom) dy = p.bottom - bottom;
-  } else if (s.top < top || s.bottom > bottom) {   // paragraphe trop long : la phrase lue en haut de la zone
-    dy = s.top - top - (s.height < room - 40 ? Math.min(40, room / 6) : 0);
-  }
+  if (s.top < top) dy = s.top - aim;                                        // phrase cachée en haut (retour en arrière)
+  else if (s.bottom > low) dy = s.height > room * 0.7 ? s.top - top : s.top - aim;   // phrase trop basse : on remonte
   if (Math.abs(dy) > 2) window.scrollBy({ top: dy, behavior: "smooth" });
 }
 /** Découpe un texte en phrases : liste de [début, fin] (espaces exclus). */
@@ -534,12 +535,20 @@ function audioText(x, lang) {
 const ACR_WORDS = new Set(("NAT WEP SAML PASTA STRIDE DREAD VAST TRIKE OCTAVE OWASP SCADA RAID CASB SASE SABSA TOGAF COBIT ITIL COSO NIST FAIR ISACA CERT " +
   "LAND KRACK SPIT PIN HIPAA SOX COPPA FERPA FISMA ITAR EAR SCAP SHA REST SOAP JSON TOCTOU SAMM BSIMM IDEAL COTS RAD SAST DAST IAST SIEM SOAR " +
   "CSIRT CIRT SOC SCIM LDAP LDAPS RADIUS TACACS FIDO XACML PAM ABAC RBAC MAC DAC ISO MITRE ATTACK POP IMAP ARP IKE DNSSEC PAP CHAP EAP PEAP " +
-  "JPEG ASCII SIP NAC WAF VXLAN VLAN LAN WAN TKIP IMSI SIM MIME IDEA CISO PUF SYN ACK NATO UNIX BEST MOST PLUS MIEUX FIRST PRIMARY MAIN PREMIER PREMI SURTOUT MOINS VRAIE FAUSSE TRUE FALSE NOT PAS SAUF LEAST FEWEST HIGHEST MAINLY AVOIDED BEFORE MUST AVANT MINIMUM UPDATE SELECT WHERE BEGIN COMMIT FORTE VITER TEMPEST LEAP ACID COPE OVAL FAST SENTRY CAST POODLE BEAST GHOST SOCKS OASIS OAKLEY WORM PATRIOT CARROT HOSTS LAPS BIOS DARPA FEMA CNIL OSINT INERGEN SONET STAR ENISA FIPS SAN NAS GAAP CAIQ STIG CRIME LOIC RUDY HUNT NIKTO SNORT WIRESHARK YAGI ZIGBEE DROWN HEIST FREAK").split(" "));
+  "JPEG ASCII SIP NAC WAF VXLAN VLAN LAN WAN TKIP IMSI SIM MIME IDEA CISO PUF SYN ACK NATO UNIX BEST MOST PLUS MIEUX FIRST PRIMARY MAIN PREMIER PREMI SURTOUT MOINS VRAIE FAUSSE TRUE FALSE NOT PAS SAUF LEAST FEWEST HIGHEST MAINLY AVOIDED BEFORE MUST AVANT MINIMUM UPDATE SELECT WHERE BEGIN COMMIT FORTE VITER TEMPEST LEAP ACID COPE OVAL FAST SENTRY CAST POODLE BEAST GHOST SOCKS OASIS OAKLEY WORM PATRIOT CARROT HOSTS LAPS BIOS DARPA FEMA CNIL OSINT INERGEN SONET STAR ENISA FIPS SAN NAS GAAP CAIQ STIG CRIME LOIC RUDY HUNT NIKTO SNORT WIRESHARK YAGI ZIGBEE DROWN HEIST FREAK ZAP BURP SHODAN").split(" "));
 /* Sigles épelés lettre par lettre, séparées par des espaces (avec des points, certaines voix disaient « point »). */
 /* Termes à casse mixte ou noms d'outils que les voix lisent mal (« DoS » lu « dos », « nmap » lu « némap »). */
 const SAY_TERMS = [[/\bDRDoS\b/g, "D R D O S"], [/\bDDoS\b/g, "D D O S"], [/\bDoS\b/g, "D O S"], [/\bIP[sS]ec\b/g, "I P sec"],
   [/\bSQLi\b/g, "S Q L i"], [/\b[Nn]map\b/g, "N map"], [/\b[Hh]ping(\d?)\b/g, "H ping $1"], [/\bZenmap\b/g, "Zen map"],
-  [/\bmacOS\b/g, "mac O S"], [/\biOS\b/g, "i O S"], [/\bLoRaWAN\b/g, "Lora WAN"], [/\bOAuth\b/g, "O auth"]];
+  [/\bmacOS\b/g, "mac O S"], [/\biOS\b/g, "i O S"], [/\bLoRaWAN\b/g, "Lora WAN"], [/\bOAuth\b/g, "O auth"],
+  // 3.2 (A15) : outils et commandes du CEH que les voix lisent comme un seul mot
+  [/\b[Ss][Qq][Ll]map\b/g, "S Q L map"], [/\bmsfvenom\b/gi, "M S F venom"], [/\bmsfconsole\b/gi, "M S F console"],
+  [/\b([A-Za-z]+)-ng\b/g, "$1 N G"], [/\btheHarvester\b/g, "the Harvester"], [/\b[Tt]cpdump\b/g, "T C P dump"],
+  [/\b[Nn]slookup\b/g, "N S lookup"], [/\b[Nn]etstat\b/g, "net stat"], [/\b[Ii]pconfig\b/g, "I P config"],
+  [/\b[Ii]fconfig\b/g, "I F config"], [/\b[Ww]hois\b/g, "who is"], [/\b[Dd]nsenum\b/g, "D N S enum"],
+  [/\benum4linux\b/gi, "enum for linux"], [/\b[Aa]rpspoof\b/g, "arp spoof"], [/\bNetBIOS\b/g, "Net BIOS"],
+  [/\bPowerShell\b/g, "Power Shell"], [/\bOpenVAS\b/g, "Open VAS"], [/\bWi-?Fi\b/gi, "Wifi"], [/\bBeEF\b/g, "beef"],
+  [/\bWannaCry\b/g, "Wanna Cry"], [/\bJtR\b/g, "John the Ripper"], [/\bsnmpwalk\b/gi, "S N M P walk"], [/\bsmbclient\b/gi, "S M B client"]];
 const spellW = w => ACR_WORDS.has(w) ? w : w.split("").join(" ");
 function spellAcr(x, lang) {
   if (typeof x !== "string") return x;
@@ -965,7 +974,7 @@ function errorPanel(title, msg, hint) {
 // Numéro de version affiché discrètement à côté du logo (même numéro que l'APK : à changer à chaque version).
 const ESL_KEY = "ceh-esl";
 const eslOn = () => { try { return localStorage.getItem(ESL_KEY) === "1"; } catch { return false; } };
-const APP_VERSION = "3.1";
+const APP_VERSION = "3.3";
 function renderVersion() {
   if (document.getElementById("app-ver")) return;
   const brand = document.querySelector(".brand"); if (!brand) return;
@@ -1128,6 +1137,7 @@ function rdRow(e) {
 }
 /** Petite section « Reprendre la lecture » en haut de Révision. */
 function rdRenderBox() {
+  nowRenderBox();
   const box = document.getElementById("rd-box"); if (!box) return;
   const fr = getLang() === "fr", a = rdList().filter(x => !x.del);
   const h = box.querySelector("details.rd-hist"); if (h) rdHistOpen = h.open;
@@ -1144,6 +1154,47 @@ function rdRenderBox() {
       rdStore([{ k: e.k, del: 1, t: Date.now() }, ...rdList().filter(x => x.k !== e.k)]);
       rdPend(true); rdPushSoon(1500); rdRenderBox();
     };
+  });
+}
+/* ---- « Maintenant » (3.2, A11 + A27) : trois raccourcis en haut de Révision, calculés à partir des données déjà là
+   (lectures récentes, quiz sauvegardés, erreurs, questions marquées). Rien n'est enregistré de plus.
+   - Continuer : la lecture pas finie la plus récente, ou le quiz sauvegardé s'il est plus récent ;
+   - Écouter : la première fiche de chapitre jamais écoutée jusqu'au bout ;
+   - À revoir aujourd'hui : erreurs (dernière réponse fausse) + questions marquées, 20 au plus, mélangées. */
+const TODAY_MAX = 20;
+function todayQs() {
+  const seen = new Set(), out = [];
+  for (const q of [...mistakes(), ...flagged()]) if (!seen.has(q.id)) { seen.add(q.id); out.push(q); }
+  return out;
+}
+function nowRenderBox() {
+  const box = document.getElementById("now-box"); if (!box) return;
+  const fr = getLang() === "fr", L = (a, b) => (fr ? a : b);
+  const reads = rdList().filter(x => !x.del);
+  const cont = canSpeak ? reads.find(x => x.i < x.n) : null;
+  const sq = loadSaved()[0] || null;
+  const useQuiz = sq && (!cont || (sq.savedAt || 0) > cont.t);
+  const done = new Set(reads.filter(x => x.c && x.i >= x.n).map(x => x.c));
+  const nextR = canSpeak ? REVISION.find(r => !done.has(String(r.id)) && !(cont && cont.c === String(r.id))) : null;
+  const tq = todayQs();
+  const items = [];
+  if (useQuiz) items.push(`<button class="now-btn" data-now="quiz"><span class="now-ico" aria-hidden="true">▶</span><span class="now-txt"><b>${L("Continuer", "Continue")}</b><span class="muted small">${esc(labelOf(sq.lab) || L("Quiz sauvegardé", "Saved quiz"))}</span></span></button>`);
+  else if (cont) items.push(`<button class="now-btn" data-now="read"><span class="now-ico" aria-hidden="true">▶</span><span class="now-txt"><b>${L("Continuer", "Continue")}</b><span class="muted small">${esc(cont.ti || "")} · ${cont.n ? Math.round(100 * cont.i / cont.n) : 0} %</span></span></button>`);
+  if (nextR) items.push(`<button class="now-btn" data-now="listen"><span class="now-ico" aria-hidden="true">🎧</span><span class="now-txt"><b>${L("Écouter", "Listen")}</b><span class="muted small">${esc(chLabel(nextR.id))} · ${esc(chTitle(chById(nextR.id)) || "")}</span></span></button>`);
+  if (tq.length) items.push(`<button class="now-btn" data-now="today"><span class="now-ico" aria-hidden="true">🎯</span><span class="now-txt"><b>${L("À revoir aujourd'hui", "Review today")}</b><span class="muted small">${L(`${Math.min(tq.length, TODAY_MAX)} questions (erreurs et marquées)`, `${Math.min(tq.length, TODAY_MAX)} questions (mistakes and marked)`)}</span></span></button>`);
+  if (!items.length) { box.hidden = true; box.innerHTML = ""; return; }
+  box.innerHTML = `<h2 class="rd-head"><span class="mono accent">⚡</span> ${L("Maintenant", "Now")}</h2><div class="now-grid">${items.join("")}</div>`;
+  box.hidden = false;
+  const on = (k, f) => { const b = box.querySelector(`[data-now="${k}"]`); if (b) b.onclick = f; };
+  on("quiz", () => resumeQuiz(sq.id));
+  on("read", () => rdResume(cont));
+  on("listen", () => {
+    const l = fr && canSpeakFr ? "fr" : "en";
+    rdResume({ k: `now:${nextR.id}`, c: String(nextR.id), p: "all", l, i: 0, n: 1 });
+  });
+  on("today", () => {
+    const qs = shuffle(todayQs()).slice(0, TODAY_MAX);
+    startQuiz({ mode: "mistakes", chapter_id: null, lab: { k: "today", n: qs.length }, questions: qs, feedback: true });
   });
 }
 /** Reprend une lecture : ouvre la fiche (ou le domaine) et relance la lecture à la phrase mémorisée. */
@@ -2122,6 +2173,13 @@ const lsStepSet = (k, v) => { try { if (v === 100) localStorage.removeItem(k); e
 function fsSet(v) { lsStepSet(FS_KEY, v); document.documentElement.style.setProperty("--read-fs", String(v / 100)); }
 function uiSet(v) { lsStepSet(UI_KEY, v); document.documentElement.style.fontSize = v === 100 ? "" : v + "%"; }
 fsSet(fsGet()); uiSet(uiGet());
+/* Mode lecture sobre (3.2, A36) : masque le fond animé, les lignes de balayage et l'effet glitch. */
+const CALM_KEY = "ceh-calm";
+const calmGet = () => { try { return localStorage.getItem(CALM_KEY) === "1"; } catch { return false; } };
+function calmSet(on) {
+  try { if (on) localStorage.setItem(CALM_KEY, "1"); else localStorage.removeItem(CALM_KEY); } catch { /* ignore */ }
+  if (on) document.documentElement.dataset.calm = "1"; else delete document.documentElement.dataset.calm;
+}
 
 /* ---- Onglet Paramètres : mise à jour, taille du texte, langue, thème, lecture audio, examen, compte. */
 function renderSettings() {
@@ -2176,6 +2234,7 @@ function renderSettings() {
         <div class="seg"><button class="seg-btn mono" data-set-lang="fr" aria-pressed="${fr}">FR</button><button class="seg-btn mono" data-set-lang="en" aria-pressed="${!fr}">EN</button></div></div>
       <div class="set-line"><span>${L("Thème", "Theme")}</span>
         <div class="seg"><button class="seg-btn" data-set-theme="dark" aria-pressed="${th === "dark"}">🌙 ${L("Sombre", "Dark")}</button><button class="seg-btn" data-set-theme="light" aria-pressed="${th === "light"}">☀️ ${L("Clair", "Light")}</button></div></div>
+      <label class="esl-opt small"><input type="checkbox" id="set-calm" ${calmGet() ? "checked" : ""}> ${L("Lecture sobre : sans fond animé ni effets (moins de fatigue visuelle, moins de batterie)", "Calm reading: no animated background or effects (easier on the eyes and the battery)")}</label>
     </section>
     ${canSpeak ? `<section class="panel set-card">
       <h3 class="mono">🔊 ${L("Lecture audio", "Audio reading")}</h3>
@@ -2189,13 +2248,17 @@ function renderSettings() {
     <section class="panel set-card">
       <h3 class="mono">📅 ${L("Examen", "Exam")}</h3>
       <p class="muted">${d ? (n >= 0 ? L(`Examen le ${d.split("-").reverse().join("/")} (J-${n})`, `Exam on ${d} (${n} days left)`) : L("Date passée", "Date passed")) : L("Aucune date indiquée", "No date set")}</p>
-      <div class="row"><button class="btn btn-ghost btn-sm" id="set-exam">${L("Choisir la date d'examen", "Set the exam date")}</button></div>
+      <div class="row"><button class="btn btn-ghost btn-sm" id="set-exam">${L("Choisir la date d'examen", "Set the exam date")}</button>
+        ${state.store ? `<button class="btn btn-ghost btn-sm" id="set-progress">📈 ${L("Voir ma progression", "See my progress")}</button>` : ""}</div>
       <label class="esl-opt small"><input type="checkbox" id="set-esl" ${eslOn() ? "checked" : ""}> ${esc(t("home.esl"))}</label>
     </section>
     <section class="panel set-card">
       <h3 class="mono">👤 ${L("Compte", "Account")}</h3>
       <p class="muted mono small">${esc(state.session?.user?.email || L("Mode local", "Local mode"))}</p>
-      ${state.store && state.store.kind !== "local" ? `<button class="btn btn-ghost btn-sm" id="set-logout">${esc(t("top.logout"))}</button>` : ""}
+      <div class="row"><button class="btn btn-ghost btn-sm" id="set-export">${inApp ? L("📋 Copier ma progression", "📋 Copy my progress") : L("⬇️ Exporter ma progression", "⬇️ Export my progress")}</button>
+      ${state.store && state.store.kind !== "local" ? `<button class="btn btn-ghost btn-sm" id="set-logout">${esc(t("top.logout"))}</button>` : ""}</div>
+      <p class="muted small">${inApp ? L("Copie un fichier JSON (sessions, réponses, marques, lectures) que vous pouvez coller où vous voulez pour le garder.", "Copies a JSON file (sessions, answers, marks, readings) you can paste anywhere to keep it.")
+        : L("Télécharge un fichier JSON : sessions, dernières réponses, marques, quiz sauvegardés, lectures, date d'examen.", "Downloads a JSON file: sessions, latest answers, marks, saved quizzes, readings, exam date.")}</p>
     </section>
   </div>`;
   const $ = id => document.getElementById(id), on = (id, f) => { const b = $(id); if (b) b.onclick = f; };
@@ -2217,8 +2280,41 @@ function renderSettings() {
   app.querySelectorAll("[data-set-voice]").forEach(s => s.onchange = () => setVoicePref(s.dataset.setVoice, s.value));
   on("set-voices", () => nativeTTS.openVoiceSettings());
   on("set-exam", e => { e.stopPropagation(); toggleExamPop(true); });
+  const calm = $("set-calm"); if (calm) calm.onchange = () => calmSet(calm.checked);
   const esl = $("set-esl"); if (esl) esl.onchange = () => { try { localStorage.setItem(ESL_KEY, esl.checked ? "1" : ""); } catch { /* ignore */ } };
   on("set-logout", () => $("btn-logout").click());
+  on("set-export", () => exportProgress(inApp));
+  on("set-progress", () => { state.section = qcmSub(); go("history"); });   // section QCM : le tableau par chapitre filtre sur la certification de la section
+}
+/* Export de la progression (3.2, A09) : lecture seule, rien n'est modifié ni envoyé.
+   Navigateur : fichier téléchargé. Appli Android (pas de téléchargement dans la WebView) : copie dans le presse-papiers. */
+function exportProgress(inApp) {
+  const fr = getLang() === "fr";
+  const data = {
+    app: "CEH Training", version: APP_VERSION, exported_at: new Date().toISOString(),
+    account: state.session?.user?.email || null, exam_date: examDate() || null,
+    attempts: state.attempts || [],
+    latest_answers: [...(state.latest || new Map()).values()].map(a => ({ question_id: a.question_id, is_correct: a.is_correct, created_at: a.created_at })),
+    flags: [...(state.flags || [])],
+    saved_quizzes: loadSaved().map(e => ({ id: e.id, label: labelOf(e.lab), savedAt: e.savedAt, questions: (e.qids || []).length })),
+    reading: rdList().filter(x => !x.del),
+  };
+  const txt = JSON.stringify(data, null, 1), name = `ceh-progression-${new Date().toISOString().slice(0, 10)}.json`;
+  if (!inApp) {
+    try {
+      const a = document.createElement("a"); a.href = URL.createObjectURL(new Blob([txt], { type: "application/json" })); a.download = name;
+      document.body.appendChild(a); a.click(); setTimeout(() => { URL.revokeObjectURL(a.href); a.remove(); }, 1000);
+      return toast(fr ? "Fichier téléchargé." : "File downloaded.", "ok");
+    } catch { /* on tente la copie */ }
+  }
+  const done = () => toast(fr ? "Progression copiée : collez-la dans une note ou un e-mail." : "Progress copied: paste it into a note or an email.", "ok");
+  const fallback = () => {
+    const ta = document.createElement("textarea"); ta.value = txt; ta.setAttribute("readonly", ""); ta.style.position = "fixed"; ta.style.opacity = "0";
+    document.body.appendChild(ta); ta.select();
+    let ok = false; try { ok = document.execCommand("copy"); } catch { ok = false; }
+    ta.remove(); ok ? done() : toast(fr ? "Copie impossible sur cet appareil." : "Copy not possible on this device.", "err");
+  };
+  if (navigator.clipboard && navigator.clipboard.writeText) navigator.clipboard.writeText(txt).then(done, fallback); else fallback();
 }
 
 /* ---- Onglet « Axes d'amélioration » : alimenté par les mauvaises réponses (dernière réponse fausse à une question),
@@ -2509,6 +2605,7 @@ function renderRevision() {
     <div class="row"><button class="btn btn-ghost btn-sm" id="rev-open-all">${esc(t("rev.openAll"))}</button>
       <button class="btn btn-ghost btn-sm" id="rev-close-all">${esc(t("rev.closeAll"))}</button></div>
   </section>
+  <section class="rd-box now-box" id="now-box" hidden></section>
   <section class="rd-box" id="rd-box" hidden></section>
   ${blocks}`;
   rdRenderBox();
@@ -2903,6 +3000,7 @@ function labelOf(lab) {
     case "mistakesDom": return t("mode.mistakesCh", { n: (lab.c === "ceh" ? "CEH " : "") + "CH" + lab.d });
     case "mistakes": return t("mode.mistakes");
     case "flagged": return t("mode.flagged");
+    case "today": return (getLang() === "fr" ? "À revoir aujourd'hui" : "Review today") + ` · ${lab.n} Q`;
     case "errorsOf": return t("mode.errorsOf", { label: labelOf(lab.of) });
     case "search": return (getLang() === "fr" ? "Sélection" : "Selection") + (lab.n === 1 && lab.r ? ` · ${lab.r}` : ` · ${lab.n} Q`);
     default: return "";
@@ -3215,6 +3313,7 @@ function renderResults() {
         <button class="btn btn-ghost" id="btn-home">${esc(t("res.home"))}</button>
       </div>
     </div>
+    ${resByChapter(r)}
     <h2 class="mono section-title">${esc(t("res.detail"))}</h2>
     ${rows}
   </section>`;
@@ -3222,8 +3321,75 @@ function renderResults() {
   bindFlags();
   document.getElementById("btn-home").onclick = () => go("");
   document.getElementById("btn-retry").onclick = () => startQuiz({ ...r.opts, questions: r.mode === "chapter" ? r.opts.questions : shuffle(r.opts.questions) });
+  app.querySelectorAll("[data-res-rev]").forEach(b => b.onclick = () => {
+    const id = +b.dataset.resRev;
+    revOpen.set("revision:" + id, "mem");
+    setSection("revision");
+    const card = app.querySelector(`.rev-card[data-rev="${id}"]`);
+    if (card) { card.open = true; card.scrollIntoView({ behavior: "smooth", block: "start" }); }
+  });
   const rw = document.getElementById("btn-retry-wrong");
   if (rw) rw.onclick = () => startQuiz({ mode: "mistakes", chapter_id: r.chapter_id, lab: { k: "errorsOf", of: r.opts.lab }, questions: shuffle(wrong.map(d => d.q)), feedback: true });
+}
+
+/* Vue d'ensemble de la progression (3.2, A28), en haut de l'Historique. Lecture seule des réponses, sessions et lectures
+   déjà chargées. Indicateurs descriptifs : ce n'est pas une probabilité de réussite à l'examen. */
+function progressOverview() {
+  const fr = getLang() === "fr", L = (a, b) => (fr ? a : b);
+  const qs = state.questions, seen = qs.filter(q => state.latest.has(q.id)), ok = seen.filter(q => state.latest.get(q.id).is_correct).length;
+  const reads = rdList().filter(x => !x.del), finished = reads.filter(x => x.i >= x.n).length;
+  const n = examDaysLeft(), d = examDate();
+  const chs = REVISION.map(r => r.id).filter(id => chById(id)).map(id => ({ id, ...chapterStats(id) }));
+  const weak = chs.filter(c => c.seen >= 5).sort((a, b) => pct(a.ok, a.seen) - pct(b.ok, b.seen)).slice(0, 3);
+  const unseen = chs.filter(c => !c.seen).slice(0, 3);
+  const tile = (v, lbl) => `<div class="pg-tile"><b class="mono">${v}</b><span class="muted small">${lbl}</span></div>`;
+  const bar = c => {
+    const cov = pct(c.seen, c.total), rate = c.seen ? pct(c.ok, c.seen) : 0;
+    return `<div class="pg-row"><span class="mono pg-ch">${esc(chLabel(c.id))}</span>
+      <span class="pg-name">${esc(chTitle(chById(c.id)) || "")}</span>
+      <span class="pg-bars" title="${L(`Vues ${cov} % · réussite ${rate} %`, `Seen ${cov}% · correct ${rate}%`)}"><span class="rd-bar pg-cov"><span style="width:${cov}%"></span></span><span class="rd-bar pg-rate"><span style="width:${rate}%"></span></span></span>
+      <span class="mono small ${c.seen ? (rate >= PASS ? "accent" : "danger") : "muted"}">${c.seen ? rate + " %" : "–"}</span></div>`;
+  };
+  return `<section class="rd-box pg-box">
+    <h2 class="rd-head"><span class="mono accent">📈</span> ${L("Progression", "Progress")}</h2>
+    <div class="pg-tiles">
+      ${tile(`${seen.length}/${qs.length}`, L("questions vues", "questions seen"))}
+      ${tile(seen.length ? pct(ok, seen.length) + " %" : "–", L("bonnes réponses (dernière réponse)", "correct (latest answer)"))}
+      ${tile(String(finished), L("lectures terminées", "readings finished"))}
+      ${tile(d && n >= 0 ? "J-" + n : "–", L("avant l'examen", "to the exam"))}
+    </div>
+    ${weak.length ? `<p class="small"><b>${L("À travailler en priorité", "Work on first")}</b> : ${weak.map(c => `${esc(chLabel(c.id))} (${pct(c.ok, c.seen)} %)`).join(", ")}</p>` : ""}
+    ${unseen.length ? `<p class="small muted">${L("Jamais entraînés", "Never practised")} : ${unseen.map(c => esc(chLabel(c.id))).join(", ")}</p>` : ""}
+    <div class="pg-list">${chs.map(bar).join("")}</div>
+    <p class="muted small">${L("Barre du haut : part des questions du chapitre déjà vues. Barre du bas : bonnes réponses parmi elles. Ce sont des repères, pas une probabilité de réussite.", "Top bar: share of the chapter's questions seen. Bottom bar: correct answers among them. These are guides, not a probability of passing.")}</p>
+  </section>`;
+}
+/* Rapport par chapitre (3.2, A21), sous le score, quand le quiz couvre au moins deux chapitres (examen blanc, sélection…).
+   Chapitre d'une question : celui du Study Guide, sinon le chapitre estimé par « À revoir » (mots-clés des fiches).
+   Les chapitres les plus faibles d'abord, avec un lien vers la fiche. Lecture seule : rien n'est enregistré. */
+function resByChapter(r) {
+  const fr = getLang() === "fr", by = new Map();
+  for (const d of r.details) {
+    let dom = (chById(d.q.chapter_id) || {}).domain || null;
+    if (!dom) try { dom = impExtracts(d.q).domain || null; } catch { dom = null; }
+    const k = dom || 0, g = by.get(k) || { n: 0, ok: 0 };
+    g.n++; if (d.ok) g.ok++; by.set(k, g);
+  }
+  if (by.size < 2) return "";
+  const per = r.total ? Math.round(r.duration / r.total) : 0;
+  const rowsH = [...by.entries()].sort((a, b) => pct(a[1].ok, a[1].n) - pct(b[1].ok, b[1].n) || b[1].n - a[1].n).map(([dom, g]) => {
+    const id = 600 + dom, rev = dom && REVISION.some(x => x.id === id), p = pct(g.ok, g.n);
+    const name = dom ? `${chLabel(id)} · ${chTitle(chById(id)) || ""}` : (fr ? "Sans chapitre identifié" : "No chapter found");
+    return `<div class="rd-row res-ch">
+      <div class="rd-info"><div class="rd-title">${esc(name)}</div>
+        <div class="rd-meta"><span class="rd-bar"><span style="width:${p}%"></span></span><span class="mono ${p >= PASS ? "accent" : "danger"}">${g.ok}/${g.n} · ${p} %</span></div></div>
+      ${rev && g.ok < g.n ? `<div class="rd-act"><button class="btn btn-ghost btn-xs" data-res-rev="${id}">${fr ? "📖 Relire la fiche" : "📖 Read the sheet"}</button></div>` : ""}
+    </div>`;
+  }).join("");
+  return `<section class="rd-box res-chapters">
+    <h2 class="rd-head"><span class="mono accent">📊</span> ${fr ? "Résultat par chapitre" : "Score by chapter"}</h2>
+    <p class="muted small">${fr ? `Les plus faibles d'abord. Temps moyen : ${per} s par question.` : `Weakest first. Average time: ${per} s per question.`}</p>
+    <div class="rd-list">${rowsH}</div></section>`;
 }
 
 // ------------------------------------------------------------------ history
@@ -3242,6 +3408,7 @@ function renderHistory() {
   app.innerHTML = `
   <section>
     <div class="row between"><h1 class="mono">${esc(t("hist.title"))}</h1><button class="btn btn-ghost" id="btn-home">${esc(t("hist.back"))}</button></div>
+    ${progressOverview()}
     <h2 class="mono section-title">${esc(t("hist.byChapter"))}</h2>
     <div class="table-wrap"><table><thead><tr><th>#</th><th>${esc(t("hist.colChapter"))}</th><th>${esc(t("hist.colSeen"))}</th><th>${esc(t("hist.colRate"))}</th><th>${esc(t("hist.colBest"))}</th></tr></thead><tbody>${chRows}</tbody></table></div>
     <h2 class="mono section-title">${esc(t("hist.sessions"))}</h2>

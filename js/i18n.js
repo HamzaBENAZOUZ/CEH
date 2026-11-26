@@ -159,7 +159,7 @@ const DICT = {
     "res.yourChoice": "(votre choix)",
     "res.noAnswer": "Sans réponse.",
 
-    "hist.title": "Historique",
+    "hist.title": "Progression et historique",
     "hist.back": "← Accueil",
     "hist.byChapter": "Par chapitre",
     "hist.sessions": "Sessions",
@@ -400,7 +400,7 @@ const DICT = {
     "res.yourChoice": "(your choice)",
     "res.noAnswer": "No answer.",
 
-    "hist.title": "History",
+    "hist.title": "Progress and history",
     "hist.back": "← Home",
     "hist.byChapter": "By chapter",
     "hist.sessions": "Sessions",

@@ -1,7 +1,7 @@
 {
- "versionCode": 22,
- "versionName": "3.1",
+ "versionCode": 24,
+ "versionName": "3.3",
  "apk": "ceh-training.apk",
- "notes_fr": "Lecture : le paragraphe lu reste entièrement visible. Paramètres : taille du texte de lecture séparée de la taille de l'interface.",
- "notes": "Reading: the paragraph being read stays fully visible. Settings: reading text size separate from interface size."
+ "notes_fr": "Lecture à voix haute : la page remonte plus tôt, la phrase lue reste dans le haut de l'écran avec une ou deux phrases d'avance. Contient aussi les nouveautés de la 3.2.",
+ "notes": "Read aloud: the page scrolls earlier, the sentence being read stays near the top with one or two sentences of look-ahead. Includes the 3.2 changes."
 }

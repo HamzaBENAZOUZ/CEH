@@ -32,7 +32,8 @@
   if (reduce) { frame(); return; }
   let last = 0;
   (function loop(t) {
-    if (t - last > 55) { frame(); last = t; }
+    // Mode lecture sobre (3.2) : fond masqué, on ne dessine plus (économise la batterie).
+    if (t - last > 55 && document.documentElement.dataset.calm !== "1") { frame(); last = t; }
     requestAnimationFrame(loop);
   })(0);
 })();

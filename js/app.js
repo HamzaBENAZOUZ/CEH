@@ -973,7 +973,7 @@ function errorPanel(title, msg, hint) {
 // Numéro de version affiché discrètement à côté du logo (même numéro que l'APK : à changer à chaque version).
 const ESL_KEY = "ceh-esl";
 const eslOn = () => { try { return localStorage.getItem(ESL_KEY) === "1"; } catch { return false; } };
-const APP_VERSION = "3.1";
+const APP_VERSION = "3.2";
 function renderVersion() {
   if (document.getElementById("app-ver")) return;
   const brand = document.querySelector(".brand"); if (!brand) return;
@@ -2247,7 +2247,8 @@ function renderSettings() {
     <section class="panel set-card">
       <h3 class="mono">📅 ${L("Examen", "Exam")}</h3>
       <p class="muted">${d ? (n >= 0 ? L(`Examen le ${d.split("-").reverse().join("/")} (J-${n})`, `Exam on ${d} (${n} days left)`) : L("Date passée", "Date passed")) : L("Aucune date indiquée", "No date set")}</p>
-      <div class="row"><button class="btn btn-ghost btn-sm" id="set-exam">${L("Choisir la date d'examen", "Set the exam date")}</button></div>
+      <div class="row"><button class="btn btn-ghost btn-sm" id="set-exam">${L("Choisir la date d'examen", "Set the exam date")}</button>
+        ${state.store ? `<button class="btn btn-ghost btn-sm" id="set-progress">📈 ${L("Voir ma progression", "See my progress")}</button>` : ""}</div>
       <label class="esl-opt small"><input type="checkbox" id="set-esl" ${eslOn() ? "checked" : ""}> ${esc(t("home.esl"))}</label>
     </section>
     <section class="panel set-card">
@@ -2282,6 +2283,7 @@ function renderSettings() {
   const esl = $("set-esl"); if (esl) esl.onchange = () => { try { localStorage.setItem(ESL_KEY, esl.checked ? "1" : ""); } catch { /* ignore */ } };
   on("set-logout", () => $("btn-logout").click());
   on("set-export", () => exportProgress(inApp));
+  on("set-progress", () => { state.section = qcmSub(); go("history"); });   // section QCM : le tableau par chapitre filtre sur la certification de la section
 }
 /* Export de la progression (3.2, A09) : lecture seule, rien n'est modifié ni envoyé.
    Navigateur : fichier téléchargé. Appli Android (pas de téléchargement dans la WebView) : copie dans le presse-papiers. */

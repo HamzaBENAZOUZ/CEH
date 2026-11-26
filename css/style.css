@@ -904,7 +904,8 @@ ul.expert-list li { border-left: 3px solid var(--accent, #d97706); padding-left:
 .pg-tile { display: flex; flex-direction: column; gap: .1rem; padding: .6rem .7rem; border-radius: 10px; background: var(--bg-2); }
 .pg-tile b { font-size: 1.25rem; }
 .pg-list { display: grid; gap: .35rem; margin: .6rem 0; }
-.pg-row { display: grid; grid-template-columns: 3.2rem minmax(0, 1fr) 80px 3rem; align-items: center; gap: .5rem; font-size: .9rem; }
+.pg-row { display: grid; grid-template-columns: auto minmax(0, 1fr) 80px 3rem; align-items: center; gap: .5rem; font-size: .9rem; }
+.pg-ch { white-space: nowrap; }
 .pg-name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; min-width: 0; }
 .pg-bars { display: flex; flex-direction: column; gap: 3px; }
 .pg-bars .rd-bar { width: 80px; }

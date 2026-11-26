@@ -2253,7 +2253,10 @@ function renderSettings() {
     <section class="panel set-card">
       <h3 class="mono">👤 ${L("Compte", "Account")}</h3>
       <p class="muted mono small">${esc(state.session?.user?.email || L("Mode local", "Local mode"))}</p>
-      ${state.store && state.store.kind !== "local" ? `<button class="btn btn-ghost btn-sm" id="set-logout">${esc(t("top.logout"))}</button>` : ""}
+      <div class="row"><button class="btn btn-ghost btn-sm" id="set-export">${inApp ? L("📋 Copier ma progression", "📋 Copy my progress") : L("⬇️ Exporter ma progression", "⬇️ Export my progress")}</button>
+      ${state.store && state.store.kind !== "local" ? `<button class="btn btn-ghost btn-sm" id="set-logout">${esc(t("top.logout"))}</button>` : ""}</div>
+      <p class="muted small">${inApp ? L("Copie un fichier JSON (sessions, réponses, marques, lectures) que vous pouvez coller où vous voulez pour le garder.", "Copies a JSON file (sessions, answers, marks, readings) you can paste anywhere to keep it.")
+        : L("Télécharge un fichier JSON : sessions, dernières réponses, marques, quiz sauvegardés, lectures, date d'examen.", "Downloads a JSON file: sessions, latest answers, marks, saved quizzes, readings, exam date.")}</p>
     </section>
   </div>`;
   const $ = id => document.getElementById(id), on = (id, f) => { const b = $(id); if (b) b.onclick = f; };
@@ -2278,6 +2281,37 @@ function renderSettings() {
   const calm = $("set-calm"); if (calm) calm.onchange = () => calmSet(calm.checked);
   const esl = $("set-esl"); if (esl) esl.onchange = () => { try { localStorage.setItem(ESL_KEY, esl.checked ? "1" : ""); } catch { /* ignore */ } };
   on("set-logout", () => $("btn-logout").click());
+  on("set-export", () => exportProgress(inApp));
+}
+/* Export de la progression (3.2, A09) : lecture seule, rien n'est modifié ni envoyé.
+   Navigateur : fichier téléchargé. Appli Android (pas de téléchargement dans la WebView) : copie dans le presse-papiers. */
+function exportProgress(inApp) {
+  const fr = getLang() === "fr";
+  const data = {
+    app: "CEH Training", version: APP_VERSION, exported_at: new Date().toISOString(),
+    account: state.session?.user?.email || null, exam_date: examDate() || null,
+    attempts: state.attempts || [],
+    latest_answers: [...(state.latest || new Map()).values()].map(a => ({ question_id: a.question_id, is_correct: a.is_correct, created_at: a.created_at })),
+    flags: [...(state.flags || [])],
+    saved_quizzes: loadSaved().map(e => ({ id: e.id, label: labelOf(e.lab), savedAt: e.savedAt, questions: (e.qids || []).length })),
+    reading: rdList().filter(x => !x.del),
+  };
+  const txt = JSON.stringify(data, null, 1), name = `ceh-progression-${new Date().toISOString().slice(0, 10)}.json`;
+  if (!inApp) {
+    try {
+      const a = document.createElement("a"); a.href = URL.createObjectURL(new Blob([txt], { type: "application/json" })); a.download = name;
+      document.body.appendChild(a); a.click(); setTimeout(() => { URL.revokeObjectURL(a.href); a.remove(); }, 1000);
+      return toast(fr ? "Fichier téléchargé." : "File downloaded.", "ok");
+    } catch { /* on tente la copie */ }
+  }
+  const done = () => toast(fr ? "Progression copiée : collez-la dans une note ou un e-mail." : "Progress copied: paste it into a note or an email.", "ok");
+  const fallback = () => {
+    const ta = document.createElement("textarea"); ta.value = txt; ta.setAttribute("readonly", ""); ta.style.position = "fixed"; ta.style.opacity = "0";
+    document.body.appendChild(ta); ta.select();
+    let ok = false; try { ok = document.execCommand("copy"); } catch { ok = false; }
+    ta.remove(); ok ? done() : toast(fr ? "Copie impossible sur cet appareil." : "Copy not possible on this device.", "err");
+  };
+  if (navigator.clipboard && navigator.clipboard.writeText) navigator.clipboard.writeText(txt).then(done, fallback); else fallback();
 }
 
 /* ---- Onglet « Axes d'amélioration » : alimenté par les mauvaises réponses (dernière réponse fausse à une question),
@@ -3295,6 +3329,38 @@ function renderResults() {
   if (rw) rw.onclick = () => startQuiz({ mode: "mistakes", chapter_id: r.chapter_id, lab: { k: "errorsOf", of: r.opts.lab }, questions: shuffle(wrong.map(d => d.q)), feedback: true });
 }
 
+/* Vue d'ensemble de la progression (3.2, A28), en haut de l'Historique. Lecture seule des réponses, sessions et lectures
+   déjà chargées. Indicateurs descriptifs : ce n'est pas une probabilité de réussite à l'examen. */
+function progressOverview() {
+  const fr = getLang() === "fr", L = (a, b) => (fr ? a : b);
+  const qs = state.questions, seen = qs.filter(q => state.latest.has(q.id)), ok = seen.filter(q => state.latest.get(q.id).is_correct).length;
+  const reads = rdList().filter(x => !x.del), finished = reads.filter(x => x.i >= x.n).length;
+  const n = examDaysLeft(), d = examDate();
+  const chs = REVISION.map(r => r.id).filter(id => chById(id)).map(id => ({ id, ...chapterStats(id) }));
+  const weak = chs.filter(c => c.seen >= 5).sort((a, b) => pct(a.ok, a.seen) - pct(b.ok, b.seen)).slice(0, 3);
+  const unseen = chs.filter(c => !c.seen).slice(0, 3);
+  const tile = (v, lbl) => `<div class="pg-tile"><b class="mono">${v}</b><span class="muted small">${lbl}</span></div>`;
+  const bar = c => {
+    const cov = pct(c.seen, c.total), rate = c.seen ? pct(c.ok, c.seen) : 0;
+    return `<div class="pg-row"><span class="mono pg-ch">${esc(chLabel(c.id))}</span>
+      <span class="pg-name">${esc(chTitle(chById(c.id)) || "")}</span>
+      <span class="pg-bars" title="${L(`Vues ${cov} % · réussite ${rate} %`, `Seen ${cov}% · correct ${rate}%`)}"><span class="rd-bar pg-cov"><span style="width:${cov}%"></span></span><span class="rd-bar pg-rate"><span style="width:${rate}%"></span></span></span>
+      <span class="mono small ${c.seen ? (rate >= PASS ? "accent" : "danger") : "muted"}">${c.seen ? rate + " %" : "–"}</span></div>`;
+  };
+  return `<section class="rd-box pg-box">
+    <h2 class="rd-head"><span class="mono accent">📈</span> ${L("Progression", "Progress")}</h2>
+    <div class="pg-tiles">
+      ${tile(`${seen.length}/${qs.length}`, L("questions vues", "questions seen"))}
+      ${tile(seen.length ? pct(ok, seen.length) + " %" : "–", L("bonnes réponses (dernière réponse)", "correct (latest answer)"))}
+      ${tile(String(finished), L("lectures terminées", "readings finished"))}
+      ${tile(d && n >= 0 ? "J-" + n : "–", L("avant l'examen", "to the exam"))}
+    </div>
+    ${weak.length ? `<p class="small"><b>${L("À travailler en priorité", "Work on first")}</b> : ${weak.map(c => `${esc(chLabel(c.id))} (${pct(c.ok, c.seen)} %)`).join(", ")}</p>` : ""}
+    ${unseen.length ? `<p class="small muted">${L("Jamais entraînés", "Never practised")} : ${unseen.map(c => esc(chLabel(c.id))).join(", ")}</p>` : ""}
+    <div class="pg-list">${chs.map(bar).join("")}</div>
+    <p class="muted small">${L("Barre du haut : part des questions du chapitre déjà vues. Barre du bas : bonnes réponses parmi elles. Ce sont des repères, pas une probabilité de réussite.", "Top bar: share of the chapter's questions seen. Bottom bar: correct answers among them. These are guides, not a probability of passing.")}</p>
+  </section>`;
+}
 /* Rapport par chapitre (3.2, A21), sous le score, quand le quiz couvre au moins deux chapitres (examen blanc, sélection…).
    Chapitre d'une question : celui du Study Guide, sinon le chapitre estimé par « À revoir » (mots-clés des fiches).
    Les chapitres les plus faibles d'abord, avec un lien vers la fiche. Lecture seule : rien n'est enregistré. */
@@ -3339,6 +3405,7 @@ function renderHistory() {
   app.innerHTML = `
   <section>
     <div class="row between"><h1 class="mono">${esc(t("hist.title"))}</h1><button class="btn btn-ghost" id="btn-home">${esc(t("hist.back"))}</button></div>
+    ${progressOverview()}
     <h2 class="mono section-title">${esc(t("hist.byChapter"))}</h2>
     <div class="table-wrap"><table><thead><tr><th>#</th><th>${esc(t("hist.colChapter"))}</th><th>${esc(t("hist.colSeen"))}</th><th>${esc(t("hist.colRate"))}</th><th>${esc(t("hist.colBest"))}</th></tr></thead><tbody>${chRows}</tbody></table></div>
     <h2 class="mono section-title">${esc(t("hist.sessions"))}</h2>

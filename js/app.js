@@ -1033,7 +1033,7 @@ function errorPanel(title, msg, hint) {
 // Numéro de version affiché discrètement à côté du logo (même numéro que l'APK : à changer à chaque version).
 const ESL_KEY = "ceh-esl";
 const eslOn = () => { try { return localStorage.getItem(ESL_KEY) === "1"; } catch { return false; } };
-const APP_VERSION = "3.11";
+const APP_VERSION = "3.12";
 function renderVersion() {
   if (document.getElementById("app-ver")) return;
   const brand = document.querySelector(".brand"); if (!brand) return;
@@ -2714,6 +2714,42 @@ const frOnly = r => !!((r.lms && r.sum && !r.sum.en) || r.bk || r.co);   // rés
 const hasBook = id => !!(state.notes && state.notes.get(id));
 const allPanes = (r, lang) => r.x ? ["audio"] : r.lms ? REV_PANES.filter(p => (r[p] && (r[p].fr || r[p].en) || []).length) : [...REV_PANES, ...(hasBook(r.id) ? BOOK_PANES : [])];
 const paneTitle = (p, lang) => t(BOOK_PANES.includes(p) ? "rev.pane.book." + p : "rev.pane." + p, {}, lang);
+/* Figures du livre (3.12) : images privées du bucket Supabase « ceh-book » (lecture réservée aux comptes connectés),
+   jamais dans le dépôt ni dans l'APK. figures.json : { "<id BOOK>": [{ h: sous-titre, f: fichier, c: légende, w, ht }] }.
+   Les liens signés (7 jours) sont gardés dans localStorage ; sans connexion, rien ne s'affiche. */
+const BKF_BUCKET = "ceh-book", BKF_LS = "ceh-figs", BKF_TTL = 7 * 864e5;
+let bkf = null;   // { at, man, urls }
+try { const v = JSON.parse(localStorage.getItem(BKF_LS) || "null"); if (v && Date.now() - v.at < BKF_TTL - 36e5) bkf = v; } catch { }
+function bkFigsOf(id) {
+  const L = bkf && bkf.man && bkf.man[id]; if (!L) return null;
+  const m = new Map(); for (const x of L) { if (!m.has(x.h)) m.set(x.h, []); m.get(x.h).push(x); } return m;
+}
+const bkFigHtml = x => `<figure class="bk-fig"><img src="${esc((bkf.urls || {})[x.f] || "")}" width="${x.w}" height="${x.ht}" alt="${esc(x.c)}" loading="lazy" decoding="async"><figcaption>${esc(x.c)}</figcaption></figure>`;
+let bkfLoading = false;
+async function bkFigsLoad() {
+  const sb = state.store && state.store.sb;
+  if (bkfLoading || !sb || !state.session || (bkf && Date.now() - bkf.at < BKF_TTL - 36e5)) return;
+  bkfLoading = true;
+  try {
+    const { data, error } = await sb.storage.from(BKF_BUCKET).download("figures.json");
+    if (error || !data) return;
+    const man = JSON.parse(await data.text());
+    const files = [...new Set(Object.values(man).flat().map(x => x.f))];
+    const { data: sig, error: e2 } = await sb.storage.from(BKF_BUCKET).createSignedUrls(files, BKF_TTL / 1000);
+    if (e2 || !sig) return;
+    const urls = {}; for (const s of sig) if (s.signedUrl) urls[s.path] = s.signedUrl;
+    bkf = { at: Date.now(), man, urls };
+    try { localStorage.setItem(BKF_LS, JSON.stringify(bkf)); } catch { }
+    // fiches déjà ouvertes : on les redessine pour faire apparaître les figures
+    document.querySelectorAll("details.rev-card[open][data-rev^='X2']").forEach(d => d.dispatchEvent(new CustomEvent("bkfigs")));
+  } catch { } finally { bkfLoading = false; }
+}
+document.addEventListener("click", e => {
+  const im = e.target.closest && e.target.closest(".bk-fig img"); if (!im) return;
+  const ov = document.createElement("div"); ov.className = "bk-fig-zoom";
+  ov.innerHTML = `<img src="${esc(im.src)}" alt="${esc(im.alt)}"><p>${esc(im.alt)}</p>`;
+  ov.addEventListener("click", () => ov.remove()); document.body.appendChild(ov);
+});
 function revPaneHtml(r, pane, lang) {
   if (pane === "all") return allPanes(r, lang).map(p => {
     const inner = revPaneHtml(r, p, lang);
@@ -2723,12 +2759,18 @@ function revPaneHtml(r, pane, lang) {
     // Lignes « ## » = sous-titre, « - » = puce (regroupées en liste), sinon paragraphe.
     let html = "", list = [];
     const flush = () => { if (list.length) { html += `<ul class="rev-list">${list.map(x => `<li>${esc(x)}</li>`).join("")}</ul>`; list = []; } };
+    // Figures et tableaux du livre (Résumé du livre seulement) : placés après le premier paragraphe de leur section.
+    const figs = r.bk && pane === "audio" ? bkFigsOf(r.id) : null;
+    let pend = null;
+    const putFigs = () => { if (pend && pend.length) html += pend.map(bkFigHtml).join(""); pend = null; };
     for (const l of revLines(r, pane, lang)) {
       if (l.startsWith("- ")) { list.push(l.slice(2)); continue; }
       flush();
+      if (figs && l.startsWith("## ")) { putFigs(); pend = figs.get(l.slice(3)) || null; }
       html += l.startsWith("## ") ? `<h4${l.startsWith("## 🎯") ? ' class="expert-h"' : ""}>${esc(l.slice(3))}</h4>` : l.startsWith("### ") ? `<h5>${esc(l.slice(4))}</h5>` : `<p>${esc(l)}</p>`;
+      if (figs && !l.startsWith("#")) putFigs();
     }
-    flush();
+    flush(); putFigs();
     return html;
   }
   return `<ul class="rev-list${pane === "expert" ? " expert-list" : ""}">${revLines(r, pane, lang).map(x => `<li>${esc(x)}</li>`).join("")}</ul>`;
@@ -2798,6 +2840,7 @@ function renderRevision() {
   ${blocks}`;
   rdFromCar();
   rdRenderBox();
+  bkFigsLoad();
   app.querySelectorAll("[data-section]").forEach(b => b.onclick = () => { stopSpeak(); setSection(b.dataset.section); });
   const setPane = (d, r, pane, l = getLang()) => {
     revOpen.set(revKey(r), pane);
@@ -2815,6 +2858,7 @@ function renderRevision() {
   const boxParts = d => [...d.querySelectorAll(".rev-pane h3, .rev-pane h4, .rev-pane h5, .rev-pane p, .rev-pane li")].map(el => el.matches("h3[data-say]") ? { el, say: el.dataset.say } : { el });
   app.querySelectorAll(".rev-card").forEach(d => {
     const r = itemOf(d);
+    if (r.bk) d.addEventListener("bkfigs", () => { if (!(speakingId && String(speakingId).startsWith(revKey(r) + ":"))) setPane(d, r, paneOf(r)); });
     d.addEventListener("toggle", () => {
       if (d.open) { if (!revOpen.has(revKey(r))) revOpen.set(revKey(r), panesOf(r)[0]); tvSheet(sec, r, paneOf(r), getLang()); }
       else { revOpen.delete(revKey(r)); if (tvRev && tvRev.r && tvRev.sec === sec && tvRev.r.id === r.id && !!tvRev.r.lms === !!r.lms) tvSheet(sec, null); }

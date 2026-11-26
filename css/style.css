@@ -980,3 +980,14 @@ html[data-skin="cyber"] .nav-tab[aria-current="page"] { color: var(--acc); backg
     font-variant-numeric: tabular-nums; white-space: nowrap; padding: 0 6px; }
   .tts-bar:not(.in-topbar) .tts-voice { flex: 1 1 0; min-width: 0; }
 }
+
+/* 3.12 : figures et tableaux du livre dans le Résumé du livre (images privées Supabase) */
+.bk-fig { margin: .4rem 0 1rem; padding: 8px; background: #fff; border: 1px solid var(--line, #ccc); border-radius: 10px; }
+.bk-fig img { display: block; width: 100%; height: auto; max-width: 720px; margin: 0 auto; cursor: zoom-in; border-radius: 4px; }
+.bk-fig img:not([src]), .bk-fig img[src=""] { display: none; }
+.bk-fig figcaption { margin-top: 6px; font-size: .8rem; color: #444; text-align: center; font-style: italic; }
+.bk-fig-zoom { position: fixed; inset: 0; z-index: 9999; background: rgba(0,0,0,.92); overflow: auto; display: flex; flex-direction: column;
+  align-items: flex-start; justify-content: flex-start; padding: 12px; cursor: zoom-out; }
+.bk-fig-zoom img { width: auto; max-width: none; min-width: 100%; height: auto; margin: auto; background: #fff; }
+@media (min-width: 900px) { .bk-fig-zoom img { min-width: 0; max-width: 100%; } }
+.bk-fig-zoom p { color: #ddd; font-size: .85rem; margin: 8px 0 0; text-align: center; }

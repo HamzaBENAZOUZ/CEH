@@ -1,7 +1,7 @@
 {
- "versionCode": 23,
- "versionName": "3.2",
+ "versionCode": 24,
+ "versionName": "3.3",
  "apk": "ceh-training.apk",
- "notes_fr": "Nouveau bloc « Maintenant » en haut de Révision (Continuer, Écouter, À revoir aujourd'hui), résultat par chapitre après un examen blanc, vue Progression, export de la progression, option Lecture sobre, meilleure prononciation des outils.",
- "notes": "New Now block on top of Review (Continue, Listen, Review today), score by chapter after a mock exam, Progress view, progress export, Calm reading option, better pronunciation of tools."
+ "notes_fr": "Lecture à voix haute : la page remonte plus tôt, la phrase lue reste dans le haut de l'écran avec une ou deux phrases d'avance. Contient aussi les nouveautés de la 3.2.",
+ "notes": "Read aloud: the page scrolls earlier, the sentence being read stays near the top with one or two sentences of look-ahead. Includes the 3.2 changes."
 }

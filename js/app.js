@@ -554,11 +554,15 @@ function spellAcr(x, lang) {
   if (typeof x !== "string") return x;
   let s = x.replace(/^\s*[-*•]\s+/, "");   // puce en début de ligne
   for (const [re, to] of SAY_TERMS) s = s.replace(re, to);
-  return audioText(s, lang)
+  const fr = /^fr/i.test(lang || "");
+  const out = audioText(s, lang)
     .replace(/\b([A-Z]{2,7})v(\d+)\b/g, (m, w, d) => `${spellW(w)} v ${d}`)    // SMBv1, SNMPv3, IPv6
     .replace(/\b([A-Z]{2,7})(\d+)\b/g, (m, w, d) => `${spellW(w)} ${d}`)       // WPA2, MD5, POP3
     .replace(/\b([A-Z]{2,7})s\b/g, (m, w) => ACR_WORDS.has(w) ? m : `${spellW(w)}s`)   // APIs, IDSs
     .replace(/\b[A-Z]{2,7}\b/g, spellW);
+  // 3.4 (demande HB, photo Android Auto) : en français, une lettre p seule était lue « page » : le P final des sigles épelés
+  // (« F T P; », « S M T P », « T C P et U D P »), l'option -p de nmap/hping, le flag P. Elle est maintenant dite « pé ».
+  return fr ? out.replace(/(?<![\p{L}\p{N}])[pP](?![\p{L}\p{N}])/gu, "pé") : out;
 }
 /* Les émojis des libellés (« 📚 Tout le chapitre », « 📘 Livre ») ne sont pas lus à voix haute. */
 const noEmoji = x => String(x).replace(/[\p{Extended_Pictographic}\u{1F1E6}-\u{1F1FF}\uFE0F\u200D]/gu, "").replace(/\s{2,}/g, " ").trim();
@@ -572,8 +576,10 @@ function speakUnits(key, units, lang, btn, onEnd) {
   if (!units.length) { if (onEnd) onEnd(); return; }
   speakingId = key; speakEnd = onEnd || null; btn.classList.add("on");
   player = { key, units, lang, btn, idx: 0, paused: false, title: mediaTitle(btn, units), rd: rdNext };
-  const start = Math.max(0, Math.min(units.length - 1, rdStartIdx || 0));
-  rdNext = null; rdStartIdx = 0;
+  // reprise venue de la voiture (3.5) : position en fraction, ramenée à la phrase juste AVANT (jamais après)
+  const fromFrac = rdStartFrac != null && rdStartFrac < 1 ? Math.max(0, Math.floor(rdStartFrac * units.length) - 1) : null;
+  const start = Math.max(0, Math.min(units.length - 1, fromFrac != null ? fromFrac : (rdStartIdx || 0)));
+  rdNext = null; rdStartIdx = 0; rdStartFrac = null;
   player.idx = start;
   if (player.rd) rdUpdate(player, false, true);
   playFrom(start);
@@ -974,7 +980,7 @@ function errorPanel(title, msg, hint) {
 // Numéro de version affiché discrètement à côté du logo (même numéro que l'APK : à changer à chaque version).
 const ESL_KEY = "ceh-esl";
 const eslOn = () => { try { return localStorage.getItem(ESL_KEY) === "1"; } catch { return false; } };
-const APP_VERSION = "3.3";
+const APP_VERSION = "3.5";
 function renderVersion() {
   if (document.getElementById("app-ver")) return;
   const brand = document.querySelector(".brand"); if (!brand) return;
@@ -1071,7 +1077,7 @@ async function syncExamDate(force = false) {
 // s'affichent en haut de Révision pour reprendre d'un geste, les autres sont rangées dans « Historique ».
 // Gardé sur l'appareil et dans le compte (user_metadata, comme la date d'examen) pour suivre l'utilisateur.
 const RD_KEY = "ceh-reading", RD_PEND = RD_KEY + "-pending", RD_FIELD = "ceh_reading", RD_MAX = 30, RD_SYNC_MAX = 12;
-let rdNext = null, rdStartIdx = 0, rdBoxAt = 0, rdPushT = null, rdSyncAt = 0, rdHistOpen = false;
+let rdNext = null, rdStartIdx = 0, rdStartFrac = null, rdBoxAt = 0, rdPushT = null, rdSyncAt = 0, rdHistOpen = false;
 const rdTitle = el => { if (!el) return ""; const c = el.cloneNode(true); c.querySelectorAll(".xp-total, button").forEach(x => x.remove());
   return c.textContent.replace(/\s+/g, " ").replace(/\s*·\s*$/, "").trim().slice(0, 80); };
 function rdList() {
@@ -1088,8 +1094,10 @@ const rdPend = v => { try { if (v) localStorage.setItem(RD_PEND, "1"); else loca
 function rdUpdate(P, finished = false, now = false) {
   const m = P.rd; if (!m) return;
   const n = P.units.length, e = { ...m, i: finished ? n : Math.min(P.idx, n), n, t: Date.now() };
+  delete e.f;
   rdStore([e, ...rdList().filter(x => x.k !== m.k)]);
   rdPend(true);
+  carSetPos(e);
   if (now || Date.now() - rdBoxAt > 5000) { rdBoxAt = Date.now(); rdRenderBox(); }
   rdPushSoon(now ? 1500 : 30000);
 }
@@ -1130,7 +1138,7 @@ function rdRow(e) {
   return `<div class="rd-row" data-rdk="${esc(e.k)}">
     <div class="rd-info"><div class="rd-title">${esc(e.ti || e.k)}</div>
       <div class="rd-meta"><span class="rd-bar"><span style="width:${pct}%"></span></span>
-        <span>${done ? (fr ? "terminé" : "finished") : `${pct} %`}${what ? " · " + what : ""} · ${e.l === "fr" ? "FR" : "EN"} · ${esc(rdAgo(e.t))}</span></div></div>
+        <span>${done ? (fr ? "terminé" : "finished") : `${pct} %`}${what ? " · " + what : ""} · ${e.l === "fr" ? "FR" : "EN"}${e.car ? (fr ? " · 🚗 voiture" : " · 🚗 car") : ""} · ${esc(rdAgo(e.t))}</span></div></div>
     <div class="rd-act"><button class="btn btn-xs ${done ? "btn-ghost" : "btn-primary"}" data-rdgo>${done ? (fr ? "↻ Relire" : "↻ Replay") : (fr ? "▶ Reprendre" : "▶ Resume")}</button>
       <button class="btn btn-ghost btn-xs" data-rddel title="${fr ? "Retirer de la liste" : "Remove from the list"}" aria-label="${fr ? "Retirer" : "Remove"}">✕</button></div>
   </div>`;
@@ -1197,6 +1205,55 @@ function nowRenderBox() {
     startQuiz({ mode: "mistakes", chapter_id: null, lab: { k: "today", n: qs.length }, questions: qs, feedback: true });
   });
 }
+/* ---- Avancement partagé avec Android Auto (3.5, demande HB). La voiture (AutoService) et l'appli gardent chacune leur
+   position ; elles sont maintenant reliées, sur le même téléphone, sans serveur :
+   - téléphone → voiture : à chaque phrase, la position (fraction lue) part dans les préférences de la voiture (setAutoPos) ;
+   - voiture → téléphone : au retour dans l'appli, les positions de la voiture plus récentes deviennent des lectures à reprendre.
+   La voiture et l'appli ne découpent pas le texte en phrases tout à fait pareil : on reprend à la phrase juste AVANT. */
+const carOK = () => !!(nativeTTS && typeof nativeTTS.autoState === "function" && typeof nativeTTS.setAutoPos === "function");
+/** Clé de base de l'élément de la voiture qui lit la même chose que cette lecture de l'appli, ou null. */
+function carBase(e) {
+  if (!e || !e.c || !e.l) return null;
+  const c = String(e.c), l = e.l === "fr" ? "fr" : "en";
+  if (/^\d+$/.test(c)) return e.p === "all" || e.p === "audio" ? `revbook-${c}-${l}` : null;
+  if (c[0] === "X") { const r = XPALL.find(x => x.id === +c.slice(1)); if (!r || e.p !== "audio") return null;
+    return `${r.co ? "co" : r.bk ? "bk" : r.dx ? "xd" : "xp"}-${r.id}-${l}`; }
+  if (c[0] === "L") return l === "fr" ? `dest-${c.slice(1)}-fr` : null;
+  return null;
+}
+/** Lecture de l'appli correspondant à un élément de la voiture : { c, p, l, ti }, ou null. */
+function carToRead(base) {
+  const m = /^(revbook|bk|co|xd|xp|dest)-(\d+)-(fr|en)$/.exec(base); if (!m) return null;
+  const [, kind, ids, l] = m, id = +ids;
+  if (kind === "revbook") { const r = REVISION.find(x => x.id === id); if (!r) return null;
+    return { c: String(id), p: r.audio && r.audio[l] ? "audio" : "all", l, ti: `${chLabel(id)} ${chTitle(chById(id)) || ""}`.trim() }; }
+  if (kind === "dest") return DESTINATION.some(x => x.id === id) ? { c: "L" + id, p: "sum", l, ti: "Destination CEH · D" + id } : null;
+  const r = XPALL.find(x => x.id === id); if (!r) return null;
+  return { c: "X" + id, p: "audio", l, ti: xpTitle(r, l) };
+}
+function carSetPos(e) {
+  if (!carOK()) return;
+  const base = carBase(e); if (!base) return;
+  try { nativeTTS.setAutoPos(base, e.n ? Math.min(1, e.i / e.n) : 0, e.t); } catch { /* ancienne appli */ }
+}
+/** Positions de la voiture plus récentes que celles de l'appli → lectures à reprendre (renvoie vrai si quelque chose a changé). */
+function rdFromCar() {
+  if (!carOK()) return false;
+  let st = {}; try { st = JSON.parse(nativeTTS.autoState() || "{}") || {}; } catch { return false; }
+  const list = rdList(); let changed = false;
+  for (const [base, x] of Object.entries(st)) {
+    if (!x || !x.t || !x.n) continue;
+    const r = carToRead(base); if (!r) continue;
+    const k = `c:${r.c}:${r.p}:${r.l}`, old = list.find(y => y.k === k);
+    if (old && old.t >= x.t) continue;
+    const f = x.done ? 1 : Math.max(0, Math.min(1, x.i / x.n));
+    const e = { k, c: r.c, p: r.p, l: r.l, ti: (old && old.ti) || r.ti, n: 1000, i: Math.round(f * 1000), f, t: x.t, car: 1 };
+    if (old && old.i >= old.n && f >= 1) continue;
+    list.splice(list.indexOf(old) >>> 0, old ? 1 : 0); list.unshift(e); changed = true;
+  }
+  if (changed) { rdStore(list); rdPend(true); rdPushSoon(1500); }
+  return changed;
+}
 /** Reprend une lecture : ouvre la fiche (ou le domaine) et relance la lecture à la phrase mémorisée. */
 function rdResume(e) {
   if (player && player.rd && player.rd.k === e.k) return;   // déjà en cours
@@ -1216,6 +1273,7 @@ function rdResume(e) {
     if (!btn) return;
     stopSpeak();
     rdStartIdx = e.i >= e.n ? 0 : e.i;
+    rdStartFrac = e.f != null && e.i < e.n ? e.f : null;
     btn.click();
   };
   if (state.section !== "revision" || state.view !== "home") { setSection("revision"); setTimeout(go, 50); } else go();
@@ -2104,7 +2162,7 @@ async function refreshSavedSlot() {
   slot.innerHTML = savedPanel(); bindSaved();
 }
 // Application Android revenue au premier plan : on relit les sauvegardes faites ailleurs.
-window.__appResume = () => { if (state.view === "home" && state.session) refreshSavedSlot(); };
+window.__appResume = () => { if (state.view === "home" && state.session) refreshSavedSlot(); if (rdFromCar()) rdRenderBox(); };
 document.addEventListener("visibilitychange", () => { if (document.visibilityState === "visible") window.__appResume(); });
 
 function savedPanel() {
@@ -2608,6 +2666,7 @@ function renderRevision() {
   <section class="rd-box now-box" id="now-box" hidden></section>
   <section class="rd-box" id="rd-box" hidden></section>
   ${blocks}`;
+  rdFromCar();
   rdRenderBox();
   app.querySelectorAll("[data-section]").forEach(b => b.onclick = () => { stopSpeak(); setSection(b.dataset.section); });
   const setPane = (d, r, pane, l = getLang()) => {

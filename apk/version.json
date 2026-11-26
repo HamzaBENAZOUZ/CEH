@@ -1,7 +1,7 @@
 {
- "versionCode": 33,
- "versionName": "3.12",
+ "versionCode": 34,
+ "versionName": "3.13",
  "apk": "ceh-training.apk",
- "notes_fr": "Résumé du livre : les figures et les tableaux du livre apparaissent à leur place dans les fiches (connexion requise). Touche une image pour l'agrandir.",
- "notes": "Book summary: the book's figures and tables appear in place in the sheets (sign-in required). Tap an image to enlarge it."
+ "notes_fr": "Fiches : sélectionne un mot ou un passage pour le surligner en couleur (5 couleurs, Effacer) ou lancer « Lire d'ici ». Touche un passage coloré pour changer sa couleur.",
+ "notes": "Sheets: select a word or passage to highlight it in colour (5 colours, Remove) or start « Read from here ». Tap a highlighted passage to change it."
 }

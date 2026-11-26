@@ -554,6 +554,8 @@ function spellAcr(x, lang) {
   if (typeof x !== "string") return x;
   let s = x.replace(/^\s*[-*•]\s+/, "");   // puce en début de ligne
   for (const [re, to] of SAY_TERMS) s = s.replace(re, to);
+  // 3.4 (demande HB) : en français, une lettre p seule (option -p de nmap/hping, flag P, nombre premier p) était lue « page ».
+  if (/^fr/i.test(lang || "")) s = s.replace(/(?<![\p{L}\p{N}])[pP](?![\p{L}\p{N}])/gu, "pé");
   return audioText(s, lang)
     .replace(/\b([A-Z]{2,7})v(\d+)\b/g, (m, w, d) => `${spellW(w)} v ${d}`)    // SMBv1, SNMPv3, IPv6
     .replace(/\b([A-Z]{2,7})(\d+)\b/g, (m, w, d) => `${spellW(w)} ${d}`)       // WPA2, MD5, POP3
@@ -974,7 +976,7 @@ function errorPanel(title, msg, hint) {
 // Numéro de version affiché discrètement à côté du logo (même numéro que l'APK : à changer à chaque version).
 const ESL_KEY = "ceh-esl";
 const eslOn = () => { try { return localStorage.getItem(ESL_KEY) === "1"; } catch { return false; } };
-const APP_VERSION = "3.3";
+const APP_VERSION = "3.4";
 function renderVersion() {
   if (document.getElementById("app-ver")) return;
   const brand = document.querySelector(".brand"); if (!brand) return;

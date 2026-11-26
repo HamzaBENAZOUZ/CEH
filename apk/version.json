@@ -1,7 +1,7 @@
 {
- "versionCode": 24,
- "versionName": "3.3",
+ "versionCode": 25,
+ "versionName": "3.4",
  "apk": "ceh-training.apk",
- "notes_fr": "Lecture à voix haute : la page remonte plus tôt, la phrase lue reste dans le haut de l'écran avec une ou deux phrases d'avance. Contient aussi les nouveautés de la 3.2.",
- "notes": "Read aloud: the page scrolls earlier, the sentence being read stays near the top with one or two sentences of look-ahead. Includes the 3.2 changes."
+ "notes_fr": "Lecture en français : la lettre p seule (options -p, flag P) est lue « pé » et non plus « page ».",
+ "notes": "French reading: a lone letter p (-p options, P flag) is no longer read as 'page'."
 }

@@ -1,7 +1,7 @@
 {
- "versionCode": 22,
- "versionName": "3.1",
+ "versionCode": 23,
+ "versionName": "3.2",
  "apk": "ceh-training.apk",
- "notes_fr": "Lecture : le paragraphe lu reste entièrement visible. Paramètres : taille du texte de lecture séparée de la taille de l'interface.",
- "notes": "Reading: the paragraph being read stays fully visible. Settings: reading text size separate from interface size."
+ "notes_fr": "Nouveau bloc « Maintenant » en haut de Révision (Continuer, Écouter, À revoir aujourd'hui), résultat par chapitre après un examen blanc, vue Progression, export de la progression, option Lecture sobre, meilleure prononciation des outils.",
+ "notes": "New Now block on top of Review (Continue, Listen, Review today), score by chapter after a mock exam, Progress view, progress export, Calm reading option, better pronunciation of tools."
 }

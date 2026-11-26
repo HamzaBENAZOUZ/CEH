@@ -560,9 +560,9 @@ function spellAcr(x, lang) {
     .replace(/\b([A-Z]{2,7})(\d+)\b/g, (m, w, d) => `${spellW(w)} ${d}`)       // WPA2, MD5, POP3
     .replace(/\b([A-Z]{2,7})s\b/g, (m, w) => ACR_WORDS.has(w) ? m : `${spellW(w)}s`)   // APIs, IDSs
     .replace(/\b[A-Z]{2,7}\b/g, spellW);
-  // 3.4 (demande HB, photo Android Auto) : en français, une lettre p seule était lue « page » : le P final des sigles épelés
-  // (« F T P; », « S M T P », « T C P et U D P »), l'option -p de nmap/hping, le flag P. Elle est maintenant dite « pé ».
-  return fr ? out.replace(/(?<![\p{L}\p{N}])[pP](?![\p{L}\p{N}])/gu, "pé") : out;
+  // 3.4-3.6 (demande HB, photo Android Auto) : en français, « F T P; » était lu « F T page ». Le « pé » (3.4) est retiré :
+  // le point-virgule devient une virgule, et la voiture réaffiche les sigles en entier (« FTP », AutoService.showLine).
+  return fr ? out.replace(/\s*;/g, ",") : out;
 }
 /* Les émojis des libellés (« 📚 Tout le chapitre », « 📘 Livre ») ne sont pas lus à voix haute. */
 const noEmoji = x => String(x).replace(/[\p{Extended_Pictographic}\u{1F1E6}-\u{1F1FF}\uFE0F\u200D]/gu, "").replace(/\s{2,}/g, " ").trim();
@@ -980,7 +980,7 @@ function errorPanel(title, msg, hint) {
 // Numéro de version affiché discrètement à côté du logo (même numéro que l'APK : à changer à chaque version).
 const ESL_KEY = "ceh-esl";
 const eslOn = () => { try { return localStorage.getItem(ESL_KEY) === "1"; } catch { return false; } };
-const APP_VERSION = "3.5";
+const APP_VERSION = "3.7";
 function renderVersion() {
   if (document.getElementById("app-ver")) return;
   const brand = document.querySelector(".brand"); if (!brand) return;

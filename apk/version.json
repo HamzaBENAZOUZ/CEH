@@ -1,7 +1,7 @@
 {
- "versionCode": 26,
- "versionName": "3.5",
+ "versionCode": 28,
+ "versionName": "3.7",
  "apk": "ceh-training.apk",
- "notes_fr": "Avancement partagé entre le téléphone et Android Auto : chacun reprend là où l'autre s'est arrêté, à la phrase juste avant.",
- "notes": "Progress shared between the phone and Android Auto: each one resumes where the other stopped, one sentence earlier."
+ "notes_fr": "Lecture : plus de « pé ». Le point-virgule est lu comme une virgule, et la voiture affiche les sigles en entier (FTP, TCP, IP).",
+ "notes": "Reading: no more 'pé'. Semicolons are read as commas, and the car shows acronyms in full (FTP, TCP, IP)."
 }

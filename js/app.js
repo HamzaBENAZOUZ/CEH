@@ -433,12 +433,13 @@ function hlKeepVisible(el, sent) {
   if (vis(nav)) bottom = Math.min(bottom, nav.getBoundingClientRect().top - 10);
   if (bottom - top < 80) bottom = top + 80;
   const p = el.getBoundingClientRect(), s = sent && sent.height ? sent : p, room = bottom - top;
+  // 3.3 (demande HB) : on garde de l'avance. La phrase lue doit rester dans le haut de la zone visible (au-dessus de 55 %),
+  // pour qu'une ou deux phrases suivantes soient déjà visibles en dessous. Dès qu'elle passe plus bas, la page remonte
+  // et la remet vers le quart haut de la zone. Avant, la page ne bougeait qu'une fois la dernière ligne visible atteinte.
+  const low = top + room * 0.55, aim = top + room * 0.25;
   let dy = 0;
-  if (p.height <= room) {   // tout le paragraphe tient : on le montre en entier
-    if (p.top < top) dy = p.top - top; else if (p.bottom > bottom) dy = p.bottom - bottom;
-  } else if (s.top < top || s.bottom > bottom) {   // paragraphe trop long : la phrase lue en haut de la zone
-    dy = s.top - top - (s.height < room - 40 ? Math.min(40, room / 6) : 0);
-  }
+  if (s.top < top) dy = s.top - aim;                                        // phrase cachée en haut (retour en arrière)
+  else if (s.bottom > low) dy = s.height > room * 0.7 ? s.top - top : s.top - aim;   // phrase trop basse : on remonte
   if (Math.abs(dy) > 2) window.scrollBy({ top: dy, behavior: "smooth" });
 }
 /** Découpe un texte en phrases : liste de [début, fin] (espaces exclus). */
@@ -973,7 +974,7 @@ function errorPanel(title, msg, hint) {
 // Numéro de version affiché discrètement à côté du logo (même numéro que l'APK : à changer à chaque version).
 const ESL_KEY = "ceh-esl";
 const eslOn = () => { try { return localStorage.getItem(ESL_KEY) === "1"; } catch { return false; } };
-const APP_VERSION = "3.2";
+const APP_VERSION = "3.3";
 function renderVersion() {
   if (document.getElementById("app-ver")) return;
   const brand = document.querySelector(".brand"); if (!brand) return;

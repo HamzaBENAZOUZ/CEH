@@ -709,7 +709,12 @@ function spellAcr(x, lang) {
     .replace(/\b[A-Z]{2,7}\b/g, spellW);
   // 3.4-3.6 (demande HB, photo Android Auto) : en français, « F T P; » était lu « F T page ». Le « pé » (3.4) est retiré :
   // le point-virgule devient une virgule, et la voiture réaffiche les sigles en entier (« FTP », AutoService.showLine).
-  return fr ? out.replace(/\s*;/g, ",") : out;
+  // 3.15 (demande HB, capture « UDP 137 » lu « U D page 137 ») : une lettre seule suivie d'un nombre est lue comme une
+  // abréviation (p 137 → « page 137 », s → « secondes », m → « mètres »). Une virgule entre les deux évite ça :
+  // « U D P, 137 », « tiret p, 80 ». Lettre minuscule : seulement après une autre lettre épelée ou « tiret » (pas « il a 3 »).
+  const sep = out.replace(/(?<![\p{L}\p{N}'’-])([A-Z]) (?=\d)/gu, "$1, ")
+    .replace(/(?<=(?:^|\s)(?:[A-Za-z]|tiret|dash) )([a-z]) (?=\d)/g, "$1, ");
+  return fr ? sep.replace(/\s*;/g, ",") : sep;
 }
 /* Les émojis des libellés (« 📚 Tout le chapitre », « 📘 Livre ») ne sont pas lus à voix haute. */
 const noEmoji = x => String(x).replace(/[\p{Extended_Pictographic}\u{1F1E6}-\u{1F1FF}\uFE0F\u200D]/gu, "").replace(/\s{2,}/g, " ").trim();
@@ -1127,7 +1132,7 @@ function errorPanel(title, msg, hint) {
 // Numéro de version affiché discrètement à côté du logo (même numéro que l'APK : à changer à chaque version).
 const ESL_KEY = "ceh-esl";
 const eslOn = () => { try { return localStorage.getItem(ESL_KEY) === "1"; } catch { return false; } };
-const APP_VERSION = "3.14";
+const APP_VERSION = "3.15";
 function renderVersion() {
   if (document.getElementById("app-ver")) return;
   const brand = document.querySelector(".brand"); if (!brand) return;

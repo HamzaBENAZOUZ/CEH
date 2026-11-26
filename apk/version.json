@@ -1,7 +1,7 @@
 {
- "versionCode": 35,
- "versionName": "3.14",
+ "versionCode": 36,
+ "versionName": "3.15",
  "apk": "ceh-training.apk",
- "notes_fr": "Lecture à voix haute : les commandes sont dites comme on les tape (« nmap -sS » → « tiret s S », « /etc/shadow » → « slash E T C slash shadow », --flood, |, ==, $…). Section Expert CEH : les vraies options Nmap (-sS, -Pn, -T0…). La voiture réaffiche les signes.",
- "notes": "Read aloud: commands are spoken the way you type them (« -sS » → « dash s S », « /etc/shadow » → « slash E T C slash shadow », --flood, |, ==, $…). CEH expert: the real Nmap options (-sS, -Pn, -T0…). The car shows the symbols again."
+ "notes_fr": "Lecture : « UDP 137 » n'est plus lu « U D page 137 » (une lettre seule suivie d'un nombre n'est plus prise pour une abréviation).",
+ "notes": "Reading: a single spelled letter followed by a number is no longer read as an abbreviation (« UDP 137 »)."
 }

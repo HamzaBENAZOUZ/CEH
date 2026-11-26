@@ -534,12 +534,20 @@ function audioText(x, lang) {
 const ACR_WORDS = new Set(("NAT WEP SAML PASTA STRIDE DREAD VAST TRIKE OCTAVE OWASP SCADA RAID CASB SASE SABSA TOGAF COBIT ITIL COSO NIST FAIR ISACA CERT " +
   "LAND KRACK SPIT PIN HIPAA SOX COPPA FERPA FISMA ITAR EAR SCAP SHA REST SOAP JSON TOCTOU SAMM BSIMM IDEAL COTS RAD SAST DAST IAST SIEM SOAR " +
   "CSIRT CIRT SOC SCIM LDAP LDAPS RADIUS TACACS FIDO XACML PAM ABAC RBAC MAC DAC ISO MITRE ATTACK POP IMAP ARP IKE DNSSEC PAP CHAP EAP PEAP " +
-  "JPEG ASCII SIP NAC WAF VXLAN VLAN LAN WAN TKIP IMSI SIM MIME IDEA CISO PUF SYN ACK NATO UNIX BEST MOST PLUS MIEUX FIRST PRIMARY MAIN PREMIER PREMI SURTOUT MOINS VRAIE FAUSSE TRUE FALSE NOT PAS SAUF LEAST FEWEST HIGHEST MAINLY AVOIDED BEFORE MUST AVANT MINIMUM UPDATE SELECT WHERE BEGIN COMMIT FORTE VITER TEMPEST LEAP ACID COPE OVAL FAST SENTRY CAST POODLE BEAST GHOST SOCKS OASIS OAKLEY WORM PATRIOT CARROT HOSTS LAPS BIOS DARPA FEMA CNIL OSINT INERGEN SONET STAR ENISA FIPS SAN NAS GAAP CAIQ STIG CRIME LOIC RUDY HUNT NIKTO SNORT WIRESHARK YAGI ZIGBEE DROWN HEIST FREAK").split(" "));
+  "JPEG ASCII SIP NAC WAF VXLAN VLAN LAN WAN TKIP IMSI SIM MIME IDEA CISO PUF SYN ACK NATO UNIX BEST MOST PLUS MIEUX FIRST PRIMARY MAIN PREMIER PREMI SURTOUT MOINS VRAIE FAUSSE TRUE FALSE NOT PAS SAUF LEAST FEWEST HIGHEST MAINLY AVOIDED BEFORE MUST AVANT MINIMUM UPDATE SELECT WHERE BEGIN COMMIT FORTE VITER TEMPEST LEAP ACID COPE OVAL FAST SENTRY CAST POODLE BEAST GHOST SOCKS OASIS OAKLEY WORM PATRIOT CARROT HOSTS LAPS BIOS DARPA FEMA CNIL OSINT INERGEN SONET STAR ENISA FIPS SAN NAS GAAP CAIQ STIG CRIME LOIC RUDY HUNT NIKTO SNORT WIRESHARK YAGI ZIGBEE DROWN HEIST FREAK ZAP BURP SHODAN").split(" "));
 /* Sigles épelés lettre par lettre, séparées par des espaces (avec des points, certaines voix disaient « point »). */
 /* Termes à casse mixte ou noms d'outils que les voix lisent mal (« DoS » lu « dos », « nmap » lu « némap »). */
 const SAY_TERMS = [[/\bDRDoS\b/g, "D R D O S"], [/\bDDoS\b/g, "D D O S"], [/\bDoS\b/g, "D O S"], [/\bIP[sS]ec\b/g, "I P sec"],
   [/\bSQLi\b/g, "S Q L i"], [/\b[Nn]map\b/g, "N map"], [/\b[Hh]ping(\d?)\b/g, "H ping $1"], [/\bZenmap\b/g, "Zen map"],
-  [/\bmacOS\b/g, "mac O S"], [/\biOS\b/g, "i O S"], [/\bLoRaWAN\b/g, "Lora WAN"], [/\bOAuth\b/g, "O auth"]];
+  [/\bmacOS\b/g, "mac O S"], [/\biOS\b/g, "i O S"], [/\bLoRaWAN\b/g, "Lora WAN"], [/\bOAuth\b/g, "O auth"],
+  // 3.2 (A15) : outils et commandes du CEH que les voix lisent comme un seul mot
+  [/\b[Ss][Qq][Ll]map\b/g, "S Q L map"], [/\bmsfvenom\b/gi, "M S F venom"], [/\bmsfconsole\b/gi, "M S F console"],
+  [/\b([A-Za-z]+)-ng\b/g, "$1 N G"], [/\btheHarvester\b/g, "the Harvester"], [/\b[Tt]cpdump\b/g, "T C P dump"],
+  [/\b[Nn]slookup\b/g, "N S lookup"], [/\b[Nn]etstat\b/g, "net stat"], [/\b[Ii]pconfig\b/g, "I P config"],
+  [/\b[Ii]fconfig\b/g, "I F config"], [/\b[Ww]hois\b/g, "who is"], [/\b[Dd]nsenum\b/g, "D N S enum"],
+  [/\benum4linux\b/gi, "enum for linux"], [/\b[Aa]rpspoof\b/g, "arp spoof"], [/\bNetBIOS\b/g, "Net BIOS"],
+  [/\bPowerShell\b/g, "Power Shell"], [/\bOpenVAS\b/g, "Open VAS"], [/\bWi-?Fi\b/gi, "Wifi"], [/\bBeEF\b/g, "beef"],
+  [/\bWannaCry\b/g, "Wanna Cry"], [/\bJtR\b/g, "John the Ripper"], [/\bsnmpwalk\b/gi, "S N M P walk"], [/\bsmbclient\b/gi, "S M B client"]];
 const spellW = w => ACR_WORDS.has(w) ? w : w.split("").join(" ");
 function spellAcr(x, lang) {
   if (typeof x !== "string") return x;

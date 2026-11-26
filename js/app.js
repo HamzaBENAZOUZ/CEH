@@ -162,7 +162,7 @@ function setRate(dir) {
   const i = RATES.indexOf(ttsRate);
   ttsRate = RATES[Math.max(0, Math.min(RATES.length - 1, i + dir))];
   try { localStorage.setItem("ceh-tts-rate", String(ttsRate)); } catch { /* ignore */ }
-  refreshReadEst();
+  refreshReadEst(); rdRenderBox();
   if (player && !player.paused) { haltEngine(); playFrom(player.idx); } else renderPlayer();
 }
 /* Choix de la voix, par langue (appli Android : voix du téléphone ; navigateur : voix du navigateur). */
@@ -297,6 +297,56 @@ function placeTtsBar(bar) {
   if (bar.parentNode !== want) { if (inTop) top.insertBefore(bar, top.querySelector(".topbar-right")); else document.body.appendChild(bar); }
   bar.classList.toggle("in-topbar", inTop);
 }
+/* 3.10 (demande HB) : temps écoulé et temps restant de la lecture en cours, sous le compteur de phrases.
+   Estimation : même base que les badges « ⏱ » (READ_MS_PER_CHAR, vitesse choisie, 250 ms par phrase, silences réels),
+   corrigée par la vitesse réelle de la voix mesurée sur les phrases lues en entier (facteur gardé par voix). */
+const TTS_CAL_KEY = "ceh-tts-cal";
+const ttsCalKey = P => P.lang + "|" + (voicePref(P.lang) || "auto") + "|" + (nativeTTS ? "app" : "web");
+function ttsCalGet(P) { try { const f = +(JSON.parse(localStorage.getItem(TTS_CAL_KEY) || "{}")[ttsCalKey(P)]); return f >= 0.4 && f <= 2.5 ? f : 1; } catch { return 1; } }
+function ttsCalSet(P, f) { try { const o = JSON.parse(localStorage.getItem(TTS_CAL_KEY) || "{}"); o[ttsCalKey(P)] = Math.round(f * 1000) / 1000; localStorage.setItem(TTS_CAL_KEY, JSON.stringify(o)); } catch { /* ignore */ } }
+function ttsPrep(P) {   // sommes cumulées (caractères, phrases, silences) : temps d'un passage en O(1)
+  if (P._pc && P._pc.length === P.units.length + 1) return;
+  const pc = [0], pn = [0], pp = [0];
+  P.units.forEach((u, k) => { pc.push(pc[k] + (u.text ? u.text.length : 0)); pn.push(pn[k] + (u.text ? 1 : 0)); pp.push(pp[k] + (u.pause || 0)); });
+  Object.assign(P, { _pc: pc, _pn: pn, _pp: pp, _f: ttsCalGet(P), _rMs: 0, _eMs: 0 });
+}
+function ttsEst(P, a, b, f = P._f) {   // durée estimée (ms) des phrases a (incluse) à b (exclue)
+  return ((P._pc[b] - P._pc[a]) * READ_MS_PER_CHAR / (ttsRate || 1) + (P._pn[b] - P._pn[a]) * 250) * f + (P._pp[b] - P._pp[a]);
+}
+/** Suit le début de chaque phrase pour mesurer la vitesse réelle de la voix (appelé à chaque rafraîchissement du lecteur). */
+function ttsClock(P) {
+  ttsPrep(P);
+  const now = Date.now();
+  if (P._rate !== ttsRate || P._voice !== voicePref(P.lang)) { P._rate = ttsRate; P._voice = voicePref(P.lang); P._rMs = P._eMs = 0; P._ok = false; P._f = ttsCalGet(P); }
+  if (P.paused) { P._t = null; P._li = P.idx; return; }
+  if (P._li !== P.idx) {
+    const k = P._li, u = P.units[k];
+    if (P._t != null && P._ok && P.idx === k + 1 && u && u.text) {   // phrase k lue en entier, sans pause ni saut
+      const est = ttsEst(P, k, k + 1, 1), real = now - P._t;
+      if (real > 300 && real < est * 4) {
+        P._rMs += real; P._eMs += est;
+        if (P._eMs >= 15000) { P._f = Math.max(0.4, Math.min(2.5, P._rMs / P._eMs)); ttsCalSet(P, P._f); }
+      }
+    }
+    P._li = P.idx; P._t = now; P._ok = true;
+  } else if (P._t == null) { P._t = now; P._ok = false; }   // reprise au milieu d'une phrase : pas de mesure
+}
+const fmtClock = ms => {
+  const s = Math.max(0, Math.round(ms / 1000)), h = Math.floor(s / 3600), m = Math.floor(s / 60) % 60, x = String(s % 60).padStart(2, "0");
+  return h ? `${h}:${String(m).padStart(2, "0")}:${x}` : `${m}:${x}`;
+};
+function ttsTimeText(P) {
+  ttsPrep(P);
+  const n = P.units.length, i = Math.min(P.idx, n - 1);
+  const cur = ttsEst(P, i, i + 1), inCur = !P.paused && P._t != null ? Math.min(Date.now() - P._t, cur) : 0;
+  const el = ttsEst(P, 0, i) + inCur, total = ttsEst(P, 0, n);
+  return `${fmtClock(el)} · −${fmtClock(total - el)}`;
+}
+// le temps avance chaque seconde pendant la lecture (seul le texte du temps est mis à jour)
+setInterval(() => {
+  if (!player || player.paused || document.hidden) return;
+  const els = document.querySelectorAll("#tts-bar .tts-time"); if (els.length) { const x = ttsTimeText(player); els.forEach(el => { el.textContent = x; }); }
+}, 1000);
 function renderPlayer() {
   notifyMedia();
   renderTvProgress();
@@ -308,7 +358,7 @@ function renderPlayer() {
   if (bar) bar.classList.remove("idle");
   if (!bar) {
     bar = document.createElement("div"); bar.id = "tts-bar"; bar.className = "tts-bar"; bar.setAttribute("role", "toolbar");
-    bar.innerHTML = `<div class="tts-ctl"></div><select class="tts-voice"></select>`;
+    bar.innerHTML = `<div class="tts-ctl"></div><span class="tts-time tts-time-row"></span><select class="tts-voice"></select>`;
     document.body.appendChild(bar);
     bar.addEventListener("click", e => {
       const b = e.target.closest("button[data-tts-act]"); if (!b || !player) return;
@@ -331,6 +381,7 @@ function renderPlayer() {
     });
   }
   placeTtsBar(bar);
+  ttsClock(player);
   const fr = getLang() === "fr", paused = player.paused, P = player;
   const btn = (act, label, body, cls = "") => `<button class="tts-btn${cls}" data-tts-act="${act}" title="${label}" aria-label="${label}">${body}</button>`;
   const svg = (d, s = 16) => `<svg viewBox="0 0 24 24" width="${s}" height="${s}" aria-hidden="true"><path d="${d}" fill="currentColor"/></svg>`;
@@ -343,8 +394,10 @@ function renderPlayer() {
     btn("toggle", paused ? (fr ? "Reprendre" : "Play") : "Pause",
       paused ? svg("M8 5v14l11-7z", 18) : svg("M7 5h4v14H7zM13 5h4v14h-4z", 18), " tts-main") +
     btn("next", fr ? "Phrase suivante" : "Next sentence", svg("M16 5h2v14h-2zM4 5v14l11-7z")) +
-    `<span class="tts-pos">${Math.min(P.idx + 1, P.units.length)}/${P.units.length}</span>` +
+    `<span class="tts-pos"><span class="tts-num">${Math.min(P.idx + 1, P.units.length)}/${P.units.length}</span><span class="tts-time" title="${fr ? "Temps écoulé · temps restant (estimés)" : "Elapsed · remaining time (estimated)"}">${ttsTimeText(P)}</span></span>` +
     btn("stop", fr ? "Arrêter" : "Stop", svg("M6 6h12v12H6z"));
+  const row = bar.querySelector(".tts-time-row");   // téléphone en portrait : le temps passe sur la ligne de la voix
+  if (row) { row.textContent = ttsTimeText(P); row.title = fr ? "Temps écoulé · temps restant (estimés)" : "Elapsed · remaining time (estimated)"; }
   const sel = bar.querySelector(".tts-voice");
   const vs = voiceList(P.lang), cur = voicePref(P.lang);
   const sig = P.lang + "|" + fr + "|" + vs.map(v => v.name).join(",");
@@ -980,7 +1033,7 @@ function errorPanel(title, msg, hint) {
 // Numéro de version affiché discrètement à côté du logo (même numéro que l'APK : à changer à chaque version).
 const ESL_KEY = "ceh-esl";
 const eslOn = () => { try { return localStorage.getItem(ESL_KEY) === "1"; } catch { return false; } };
-const APP_VERSION = "3.8";
+const APP_VERSION = "3.10";
 function renderVersion() {
   if (document.getElementById("app-ver")) return;
   const brand = document.querySelector(".brand"); if (!brand) return;
@@ -1095,6 +1148,9 @@ function rdUpdate(P, finished = false, now = false) {
   const m = P.rd; if (!m) return;
   const n = P.units.length, e = { ...m, i: finished ? n : Math.min(P.idx, n), n, t: Date.now() };
   delete e.f;
+  // 3.10 : temps estimé (secondes, ramenées à la vitesse 1) déjà lu et total, pour « Reprendre la lecture »
+  ttsPrep(P); const r1 = (ttsRate || 1) / 1000;
+  e.te = Math.round(ttsEst(P, 0, e.i) * r1); e.tt = Math.round(ttsEst(P, 0, n) * r1);
   rdStore([e, ...rdList().filter(x => x.k !== m.k)]);
   rdPend(true);
   carSetPos(e);
@@ -1132,13 +1188,24 @@ function rdAgo(t) {
   const h = Math.round(m / 60); if (h < 24) return fr ? `il y a ${h} h` : `${h} h ago`;
   const d = Math.round(h / 24); return fr ? `il y a ${d} j` : `${d} d ago`;
 }
+/** 3.10 (demande HB) : « 12 min lues · reste 4 min » (estimé à la vitesse de lecture choisie). Rien pour une ancienne entrée. */
+function fmtMin(sec) {
+  const m = Math.round(sec / 60);
+  return sec < 60 ? "< 1 min" : m >= 60 ? `${Math.floor(m / 60)} h ${String(m % 60).padStart(2, "0")}` : `${m} min`;
+}
+function rdTimes(e, done) {
+  if (!(e.tt > 0)) return "";
+  const fr = getLang() === "fr", k = 1 / (ttsRate || 1), te = Math.min(e.te || 0, e.tt) * k, tt = e.tt * k;
+  if (done) return ` · ${fmtMin(tt)}`;
+  return ` · <span class="rd-time" title="${fr ? "Temps écoulé · temps restant (estimés à la vitesse choisie)" : "Elapsed · remaining time (estimated at the chosen speed)"}">⏱ ${fmtMin(te)} ${fr ? "lues" : "read"} · ${fr ? "reste" : "left"} ${fmtMin(tt - te)}</span>`;
+}
 function rdRow(e) {
   const fr = getLang() === "fr", done = e.i >= e.n, pct = e.n ? Math.round(100 * Math.min(e.i, e.n) / e.n) : 0;
   const what = e.d ? (fr ? "domaine entier" : "whole domain") : "";
   return `<div class="rd-row" data-rdk="${esc(e.k)}">
     <div class="rd-info"><div class="rd-title">${esc(e.ti || e.k)}</div>
       <div class="rd-meta"><span class="rd-bar"><span style="width:${pct}%"></span></span>
-        <span>${done ? (fr ? "terminé" : "finished") : `${pct} %`}${what ? " · " + what : ""} · ${e.l === "fr" ? "FR" : "EN"}${e.car ? (fr ? " · 🚗 voiture" : " · 🚗 car") : ""} · ${esc(rdAgo(e.t))}</span></div></div>
+        <span>${done ? (fr ? "terminé" : "finished") : `${pct} %`}${rdTimes(e, done)}${what ? " · " + what : ""} · ${e.l === "fr" ? "FR" : "EN"}${e.car ? (fr ? " · 🚗 voiture" : " · 🚗 car") : ""} · ${esc(rdAgo(e.t))}</span></div></div>
     <div class="rd-act"><button class="btn btn-xs ${done ? "btn-ghost" : "btn-primary"}" data-rdgo>${done ? (fr ? "↻ Relire" : "↻ Replay") : (fr ? "▶ Reprendre" : "▶ Resume")}</button>
       <button class="btn btn-ghost btn-xs" data-rddel title="${fr ? "Retirer de la liste" : "Remove from the list"}" aria-label="${fr ? "Retirer" : "Remove"}">✕</button></div>
   </div>`;
@@ -1248,6 +1315,7 @@ function rdFromCar() {
     if (old && old.t >= x.t) continue;
     const f = x.done ? 1 : Math.max(0, Math.min(1, x.i / x.n));
     const e = { k, c: r.c, p: r.p, l: r.l, ti: (old && old.ti) || r.ti, n: 1000, i: Math.round(f * 1000), f, t: x.t, car: 1 };
+    if (old && old.tt) { e.tt = old.tt; e.te = Math.round(f * old.tt); }   // 3.10 : durée connue d'une lecture faite sur le téléphone
     if (old && old.i >= old.n && f >= 1) continue;
     list.splice(list.indexOf(old) >>> 0, old ? 1 : 0); list.unshift(e); changed = true;
   }

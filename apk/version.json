@@ -1,7 +1,7 @@
 {
- "versionCode": 31,
- "versionName": "3.10",
+ "versionCode": 33,
+ "versionName": "3.12",
  "apk": "ceh-training.apk",
- "notes_fr": "La barre de lecture affiche le temps écoulé et le temps restant de la lecture en cours (estimés, ajustés à la voix). « Reprendre la lecture » montre aussi le temps lu et le temps restant.",
- "notes": "The reading bar shows elapsed and remaining time for the current reading (estimated, adjusted to the voice). 'Resume reading' also shows time read and time left."
+ "notes_fr": "Résumé du livre : les figures et les tableaux du livre apparaissent à leur place dans les fiches (connexion requise). Touche une image pour l'agrandir.",
+ "notes": "Book summary: the book's figures and tables appear in place in the sheets (sign-in required). Tap an image to enlarge it."
 }

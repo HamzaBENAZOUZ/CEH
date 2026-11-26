@@ -1,7 +1,7 @@
 {
- "versionCode": 26,
- "versionName": "3.5",
+ "versionCode": 27,
+ "versionName": "3.6",
  "apk": "ceh-training.apk",
- "notes_fr": "Avancement partagé entre le téléphone et Android Auto : chacun reprend là où l'autre s'est arrêté, à la phrase juste avant.",
- "notes": "Progress shared between the phone and Android Auto: each one resumes where the other stopped, one sentence earlier."
+ "notes_fr": "Lecture en français : « pé » seulement pour un P suivi d'un point-virgule ; IP redevient « I P ».",
+ "notes": "French reading: 'pé' only for a P followed by a semicolon; IP is read 'I P' again."
 }

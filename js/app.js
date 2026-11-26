@@ -980,7 +980,7 @@ function errorPanel(title, msg, hint) {
 // Numéro de version affiché discrètement à côté du logo (même numéro que l'APK : à changer à chaque version).
 const ESL_KEY = "ceh-esl";
 const eslOn = () => { try { return localStorage.getItem(ESL_KEY) === "1"; } catch { return false; } };
-const APP_VERSION = "3.7";
+const APP_VERSION = "3.8";
 function renderVersion() {
   if (document.getElementById("app-ver")) return;
   const brand = document.querySelector(".brand"); if (!brand) return;
@@ -2239,6 +2239,16 @@ function calmSet(on) {
   if (on) document.documentElement.dataset.calm = "1"; else delete document.documentElement.dataset.calm;
 }
 
+/* 3.8 (demande HB) : style visuel. "classic" = charte C|EH (défaut, aucun attribut) ; "cyber" = Cyberpunk.
+   Le choix est gardé sur l'appareil (ceh-skin) ; revenir à Classique annule tout. */
+const SKIN_KEY = "ceh-skin", SKINS = ["classic", "cyber"];
+const skinGet = () => { try { const v = localStorage.getItem(SKIN_KEY); return SKINS.includes(v) ? v : "classic"; } catch { return "classic"; } };
+function skinSet(v) {
+  if (!SKINS.includes(v)) v = "classic";
+  try { if (v === "classic") localStorage.removeItem(SKIN_KEY); else localStorage.setItem(SKIN_KEY, v); } catch { /* ignore */ }
+  if (v === "classic") delete document.documentElement.dataset.skin; else document.documentElement.dataset.skin = v;
+}
+
 /* ---- Onglet Paramètres : mise à jour, taille du texte, langue, thème, lecture audio, examen, compte. */
 function renderSettings() {
   stopTimer();
@@ -2292,6 +2302,8 @@ function renderSettings() {
         <div class="seg"><button class="seg-btn mono" data-set-lang="fr" aria-pressed="${fr}">FR</button><button class="seg-btn mono" data-set-lang="en" aria-pressed="${!fr}">EN</button></div></div>
       <div class="set-line"><span>${L("Thème", "Theme")}</span>
         <div class="seg"><button class="seg-btn" data-set-theme="dark" aria-pressed="${th === "dark"}">🌙 ${L("Sombre", "Dark")}</button><button class="seg-btn" data-set-theme="light" aria-pressed="${th === "light"}">☀️ ${L("Clair", "Light")}</button></div></div>
+      <div class="set-line"><span>${L("Style", "Style")}</span>
+        <div class="seg"><button class="seg-btn" data-set-skin="classic" aria-pressed="${skinGet() === "classic"}">${L("Classique", "Classic")}</button><button class="seg-btn" data-set-skin="cyber" aria-pressed="${skinGet() === "cyber"}">Cyberpunk</button></div></div>
       <label class="esl-opt small"><input type="checkbox" id="set-calm" ${calmGet() ? "checked" : ""}> ${L("Lecture sobre : sans fond animé ni effets (moins de fatigue visuelle, moins de batterie)", "Calm reading: no animated background or effects (easier on the eyes and the battery)")}</label>
     </section>
     ${canSpeak ? `<section class="panel set-card">
@@ -2334,6 +2346,7 @@ function renderSettings() {
   on("ui-minus", () => uiStep(-1)); on("ui-plus", () => uiStep(1)); on("ui-reset", () => { uiSet(100); renderSettings(); });
   app.querySelectorAll("[data-set-lang]").forEach(b => b.onclick = () => { const x = document.querySelector(`.topbar [data-lang="${b.dataset.setLang}"]`); if (x) x.click(); renderSettings(); });
   app.querySelectorAll("[data-set-theme]").forEach(b => b.onclick = () => { setTheme(b.dataset.setTheme); renderSettings(); });
+  app.querySelectorAll("[data-set-skin]").forEach(b => b.onclick = () => { skinSet(b.dataset.setSkin); renderSettings(); });
   on("rate-minus", () => { setRate(-1); renderSettings(); }); on("rate-plus", () => { setRate(1); renderSettings(); });
   app.querySelectorAll("[data-set-voice]").forEach(s => s.onchange = () => setVoicePref(s.dataset.setVoice, s.value));
   on("set-voices", () => nativeTTS.openVoiceSettings());

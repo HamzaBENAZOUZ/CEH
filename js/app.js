@@ -539,7 +539,7 @@ function speechUnits(parts, lang) {
       let x = text.slice(a, b);
       if (i === spans.length - 1 && !/[.?!:;…]["'»”)\]]*$/.test(x)) x += ".";
       if (i === 0 && p.prefix) x = p.prefix + " " + x;
-      units.push({ text: x, el: p.el, range: HL_API ? textRange(p.el, a, b) : null });
+      units.push({ text: x, el: p.el, a, b, range: HL_API ? textRange(p.el, a, b) : null });
     });
   }
   return units;
@@ -1127,7 +1127,7 @@ function errorPanel(title, msg, hint) {
 // Numéro de version affiché discrètement à côté du logo (même numéro que l'APK : à changer à chaque version).
 const ESL_KEY = "ceh-esl";
 const eslOn = () => { try { return localStorage.getItem(ESL_KEY) === "1"; } catch { return false; } };
-const APP_VERSION = "3.12";
+const APP_VERSION = "3.13";
 function renderVersion() {
   if (document.getElementById("app-ver")) return;
   const brand = document.querySelector(".brand"); if (!brand) return;
@@ -2932,15 +2932,18 @@ function renderRevision() {
   <section class="rd-box now-box" id="now-box" hidden></section>
   <section class="rd-box" id="rd-box" hidden></section>
   ${blocks}`;
+  app.querySelectorAll(".rev-card").forEach(d => mkApply(d, lang));
   rdFromCar();
   rdRenderBox();
   bkFigsLoad();
+  mkSync();
   app.querySelectorAll("[data-section]").forEach(b => b.onclick = () => { stopSpeak(); setSection(b.dataset.section); });
   const setPane = (d, r, pane, l = getLang()) => {
     revOpen.set(revKey(r), pane);
     d.querySelectorAll("[data-revpane]").forEach(x => x.setAttribute("aria-pressed", x.dataset.revpane === pane));
     const box = d.querySelector(".rev-pane"); box.innerHTML = revPaneHtml(r, pane, l);
     if (l !== getLang()) box.lang = l; else box.removeAttribute("lang");
+    mkApply(d, l);
   };
   // temps estimé : fiche = volet affiché ; domaine = « Tout » de chaque fiche du domaine
   const cardEst = d => { const r = itemOf(d); d.querySelectorAll("[data-revspeak]").forEach(b => setReadEst(b, textSize(revLines(r, paneOf(r), b.dataset.revspeak)))); };
@@ -2960,18 +2963,26 @@ function renderRevision() {
     d.querySelectorAll("[data-revpane]").forEach(b => b.onclick = () => {
       stopSpeak(); setPane(d, r, b.dataset.revpane); tvSheet(sec, r, b.dataset.revpane, getLang()); cardEst(d);
     });
-    d.querySelectorAll("[data-revspeak]").forEach(b => b.onclick = e => {
-      e.preventDefault();
+    // 3.13 : « Lire à partir d'ici » (menu de sélection) : d.__readFrom(bloc, position) lit la fiche depuis cette phrase
+    d.__readFrom = (el, off) => { const b = d.querySelector(`[data-revspeak="${getLang()}"]`) || d.querySelector("[data-revspeak]"); if (b) readCard(b, { el, off }); };
+    const readCard = (b, from) => {
       const l = b.dataset.revspeak, pane = paneOf(r), k = `${revKey(r)}:${pane}:${l}`;
-      if (tv && tv.ok) { tvSheet(sec, r, pane, l); tvSpeak("sheet"); return; }   // télé connectée : lecture sur la télé
-      if (speakingId === k) { stopSpeak(); return; }
+      if (!from && tv && tv.ok) { tvSheet(sec, r, pane, l); tvSpeak("sheet"); return; }   // télé connectée : lecture sur la télé
+      if (!from && speakingId === k) { stopSpeak(); return; }
       stopSpeak();
       // Lecture dans l'autre langue : le texte lu est affiché le temps de la lecture, puis on remet la langue du site.
       let restore = null;
       if (l !== getLang()) { setPane(d, r, pane, l); restore = () => { if (d.isConnected && paneOf(r) === pane) setPane(d, r, pane); }; }
       rdNext = { k: `c:${d.dataset.rev}:${pane}:${l}`, c: d.dataset.rev, p: pane, l, ti: rdTitle(d.querySelector("summary")) };
-      speakUnits(k, speechUnits([...revIntro(d, r, pane, l), ...boxParts(d)], l), l, b, restore);
-    });
+      const units = speechUnits([...revIntro(d, r, pane, l), ...boxParts(d)], l);
+      if (from) {   // première phrase du bloc qui finit après la position choisie (sinon le début du bloc)
+        let i = units.findIndex(u => u.el === from.el && u.b != null && u.b > from.off);
+        if (i < 0) i = units.findIndex(u => u.el === from.el);
+        rdStartIdx = Math.max(0, i);
+      }
+      speakUnits(k, units, l, b, restore);
+    };
+    d.querySelectorAll("[data-revspeak]").forEach(b => b.onclick = e => { e.preventDefault(); readCard(b); });
   });
   // « Lire tout le domaine » : chaque fiche du domaine est ouverte sur « Tout », puis tout est lu à la suite (avec surlignage).
   app.querySelectorAll("[data-domspeak]").forEach(b => b.onclick = e => {
@@ -2997,6 +3008,199 @@ function renderRevision() {
   document.getElementById("rev-close-all").onclick = all(false);
   mountOffline();
 }
+
+/* ---- 3.13 : surlignages en couleur dans les fiches (demande HB) ----
+   Sélectionner un mot ou un passage d'une fiche (Révision) ouvre un petit menu : 5 couleurs, « Effacer » et « Lire d'ici ».
+   Toucher un passage déjà coloré rouvre le menu pour ce passage. Les surlignages sont rangés par fiche et par langue
+   (clé « <data-rev>|<langue> ») ; chaque passage = [empreinte du texte du bloc, début, fin, couleur]. L'empreinte rend le
+   passage visible dans tous les volets qui affichent ce bloc (Résumé, « Tout le chapitre », Lire tout le domaine).
+   Le texte affiché ne change pas (les <mark> ne font qu'envelopper le texte) : la lecture vocale et son surlignage restent justes.
+   Stockage : localStorage « ceh-marks » ; compte : table Supabase ceh_marks (k, data) si elle existe, sinon appareil seulement. */
+const MK_KEY = "ceh-marks", MK_PEND = "ceh-marks-pend", MK_TABLE = "ceh_marks";
+const MK_COLORS = ["yellow", "green", "blue", "pink", "orange"];
+const MK_NAMES = { fr: { yellow: "Jaune", green: "Vert", blue: "Bleu", pink: "Rose", orange: "Orange" }, en: { yellow: "Yellow", green: "Green", blue: "Blue", pink: "Pink", orange: "Orange" } };
+const MK_BLOCKS = ".rev-pane h3, .rev-pane h4, .rev-pane h5, .rev-pane p, .rev-pane li";
+let mkRemote = true, mkSyncAt = 0, mkPushT = null;
+function mkAll() { try { const o = JSON.parse(localStorage.getItem(MK_KEY) || "{}"); return o && typeof o === "object" && !Array.isArray(o) ? o : {}; } catch { return {}; } }
+function mkSave(o) { try { localStorage.setItem(MK_KEY, JSON.stringify(o)); } catch { /* stockage indisponible */ } }
+function mkPendGet() { try { return new Set(JSON.parse(localStorage.getItem(MK_PEND) || "[]")); } catch { return new Set(); } }
+function mkPendSet(s) { try { if (s.size) localStorage.setItem(MK_PEND, JSON.stringify([...s])); else localStorage.removeItem(MK_PEND); } catch { /* */ } }
+const mkCardKey = (d, l) => d.dataset.rev + "|" + l;
+/** Empreinte courte (FNV-1a) du texte d'un bloc : retrouve le même paragraphe dans tous les volets. */
+function mkHash(text) { let h = 2166136261; const s = text.replace(/\s+/g, " ").trim(); for (let i = 0; i < s.length; i++) { h ^= s.charCodeAt(i); h = Math.imul(h, 16777619); } return (h >>> 0).toString(36); }
+/** Entoure les caractères [a, b[ du bloc d'un <mark class="hl hl-couleur"> (sur plusieurs nœuds texte si besoin). */
+function mkWrap(el, a, b, c) {
+  const w = document.createTreeWalker(el, NodeFilter.SHOW_TEXT), segs = []; let pos = 0, n;
+  while ((n = w.nextNode())) { const len = n.data.length, x = Math.max(a, pos), y = Math.min(b, pos + len); if (y > x) segs.push([n, x - pos, y - pos]); pos += len; if (pos >= b) break; }
+  for (const [node, x, y] of segs) {
+    let t = node; if (x > 0) t = t.splitText(x); if (y - x < t.data.length) t.splitText(y - x);
+    const m = document.createElement("mark"); m.className = "hl hl-" + c; t.parentNode.insertBefore(m, t); m.appendChild(t);
+  }
+}
+/** Redessine les surlignages d'un bloc (texte remis à plat, puis passages). La lecture en cours garde son surlignage. */
+function mkPaint(el, list) {
+  if (el.querySelector("mark.hl")) { el.querySelectorAll("mark.hl").forEach(m => m.replaceWith(...m.childNodes)); el.normalize(); }
+  for (const [, a, b, c] of list) mkWrap(el, a, b, c);
+  if (player && HL_API) { let cur = false; player.units.forEach((u, i) => { if (u.el === el && u.a != null) { u.range = textRange(el, u.a, u.b); if (i === player.idx) cur = true; } }); if (cur) hlShow(player.units[player.idx]); }
+}
+/** Applique les surlignages enregistrés à une fiche affichée (langue l). */
+function mkApply(d, l = getLang()) {
+  const e = mkAll()[mkCardKey(d, l)]; if (!e || !e.m || !e.m.length) return;
+  const by = new Map(); for (const x of e.m) { if (!by.has(x[0])) by.set(x[0], []); by.get(x[0]).push(x); }
+  d.querySelectorAll(MK_BLOCKS).forEach(el => { const L = by.get(mkHash(el.textContent)); if (L) mkPaint(el, L); });
+}
+const mkLangOf = d => { const p = d.querySelector(".rev-pane"); return (p && p.lang) || getLang(); };
+/** Ajoute (couleur) ou efface (c = null) les passages [a, b[ des blocs donnés, puis redessine et enregistre. */
+function mkEdit(d, spans, c) {
+  const l = mkLangOf(d), k = mkCardKey(d, l), all = mkAll(), e = all[k] || { m: [] };
+  let m = e.m || [];
+  for (const { el, a, b } of spans) {
+    const h = mkHash(el.textContent), out = [];
+    for (const x of m) {   // le nouveau passage remplace ce qu'il recouvre (les bords qui dépassent sont gardés)
+      if (x[0] !== h || x[2] <= a || x[1] >= b) { out.push(x); continue; }
+      if (x[1] < a) out.push([h, x[1], a, x[3]]);
+      if (x[2] > b) out.push([h, b, x[2], x[3]]);
+    }
+    if (c) out.push([h, a, b, c]);
+    m = out;
+  }
+  // passages voisins de même couleur fusionnés
+  m.sort((x, y) => x[0] < y[0] ? -1 : x[0] > y[0] ? 1 : x[1] - y[1]);
+  const mm = []; for (const x of m) { const p = mm[mm.length - 1]; if (p && p[0] === x[0] && p[3] === x[3] && x[1] <= p[2]) p[2] = Math.max(p[2], x[2]); else mm.push([...x]); }
+  all[k] = { t: Date.now(), m: mm }; mkSave(all);
+  const by = new Map(); for (const x of mm) { if (!by.has(x[0])) by.set(x[0], []); by.get(x[0]).push(x); }
+  // tous les blocs touchés, y compris le même texte affiché ailleurs dans la fiche
+  const hs = new Set(spans.map(s => mkHash(s.el.textContent)));
+  d.querySelectorAll(MK_BLOCKS).forEach(el => { const h = mkHash(el.textContent); if (hs.has(h)) mkPaint(el, by.get(h) || []); });
+  const pend = mkPendGet(); pend.add(k); mkPendSet(pend); mkPushSoon(1500);
+}
+/* --- Compte : une ligne par fiche et par langue dans ceh_marks ; la plus récente gagne (un effacement total reste « m: [] »). --- */
+function mkPushSoon(ms) { clearTimeout(mkPushT); mkPushT = setTimeout(mkPushNow, ms); }
+async function mkPushNow() {
+  clearTimeout(mkPushT); mkPushT = null;
+  const sb = state.store && state.store.sb; if (!mkRemote || !sb || !state.session) return;
+  const pend = mkPendGet(); if (!pend.size) return;
+  const all = mkAll(), rows = [...pend].filter(k => all[k]).map(k => ({ k, data: all[k], updated_at: new Date(all[k].t).toISOString() }));
+  try {
+    const { error } = await sb.from(MK_TABLE).upsert(rows, { onConflict: "user_id,k" });
+    if (error) { if (/relation|schema cache|does not exist|PGRST205|42P01/i.test(error.message + " " + error.code)) mkRemote = false; return; }
+    const now = mkPendGet(); for (const k of pend) now.delete(k); mkPendSet(now);
+  } catch { /* hors ligne : renvoyé plus tard */ }
+}
+async function mkSync(force = false) {
+  const sb = state.store && state.store.sb; if (!mkRemote || !sb || !state.session) return;
+  if (!force && Date.now() - mkSyncAt < 60000) return;
+  mkSyncAt = Date.now();
+  try {
+    const { data, error } = await sb.from(MK_TABLE).select("k,data").limit(2000);
+    if (error) { if (/relation|schema cache|does not exist|PGRST205|42P01/i.test(error.message + " " + error.code)) mkRemote = false; return; }
+    const all = mkAll(), pend = mkPendGet(), seen = new Set(); let changed = false;
+    for (const row of data || []) {
+      const v = row.data; seen.add(row.k); if (!v || !Array.isArray(v.m)) continue;
+      const o = all[row.k];
+      if (!o || (v.t || 0) > (o.t || 0)) { all[row.k] = v; changed = true; pend.delete(row.k); }
+      else if ((o.t || 0) > (v.t || 0)) pend.add(row.k);
+    }
+    for (const k of Object.keys(all)) if (!seen.has(k)) pend.add(k);
+    mkPendSet(pend);
+    if (changed) { mkSave(all); document.querySelectorAll(".rev-card").forEach(d => mkApply(d, mkLangOf(d))); }
+    if (pend.size) mkPushSoon(1000);
+  } catch { /* hors ligne */ }
+}
+document.addEventListener("visibilitychange", () => { if (document.hidden) mkPushNow(); else if (document.querySelector(".rev-card")) mkSync(); });
+/* --- Menu de sélection --- */
+let mkMenu = null, mkCur = null, mkSelT = null, mkPress = 0;
+/** Sélection courante -> { d: fiche, spans: [{ el, a, b }], rect } (seulement dans le texte d'une fiche). */
+function mkFromSelection() {
+  const sel = window.getSelection && window.getSelection(); if (!sel || sel.isCollapsed || !sel.rangeCount) return null;
+  const R = sel.getRangeAt(0), anc = R.commonAncestorContainer.nodeType === 1 ? R.commonAncestorContainer : R.commonAncestorContainer.parentElement;
+  const d = anc && anc.closest(".rev-card"); if (!d || !anc.closest(".rev-pane, .rev-card")) return null;
+  const off = (el, node, o) => { const x = document.createRange(); x.selectNodeContents(el); try { x.setEnd(node, o); } catch { return 0; } return x.toString().length; };
+  const spans = [];
+  d.querySelectorAll(MK_BLOCKS).forEach(el => {
+    if (!R.intersectsNode(el)) return;
+    const text = el.textContent, len = text.length;
+    let a = el.contains(R.startContainer) ? off(el, R.startContainer, R.startOffset) : 0;
+    let b = el.contains(R.endContainer) ? off(el, R.endContainer, R.endOffset) : len;
+    while (a < b && /\s/.test(text[a])) a++; while (b > a && /\s/.test(text[b - 1])) b--;
+    if (b > a) spans.push({ el, a, b });
+  });
+  if (!spans.length) return null;
+  return { d, spans, rect: R.getBoundingClientRect() };
+}
+function mkHide() { if (mkMenu) mkMenu.hidden = true; mkCur = null; }
+function mkShow(cur) {
+  mkCur = cur;
+  const fr = getLang() === "fr", N = MK_NAMES[fr ? "fr" : "en"];
+  if (!mkMenu) {
+    mkMenu = document.createElement("div"); mkMenu.className = "hl-menu"; mkMenu.setAttribute("role", "toolbar");
+    // garder la sélection quand on touche le menu
+    mkMenu.addEventListener("pointerdown", e => { e.preventDefault(); mkPress = Date.now(); });
+    mkMenu.addEventListener("touchstart", () => { mkPress = Date.now(); }, { passive: true });
+    mkMenu.addEventListener("mousedown", e => e.preventDefault());
+    mkMenu.addEventListener("click", e => {
+      const b = e.target.closest("button"); if (!b || !mkCur) return;
+      const cur = mkCur, act = b.dataset.hl;
+      if (act === "read") { const s = cur.spans[0]; mkHide(); try { window.getSelection().removeAllRanges(); } catch { } if (cur.d.__readFrom) cur.d.__readFrom(s.el, s.a); return; }
+      mkEdit(cur.d, cur.spans, act === "erase" ? null : act);
+      mkHide(); try { window.getSelection().removeAllRanges(); } catch { }
+    });
+    document.body.appendChild(mkMenu);
+  }
+  const readOk = canSpeak && !!cur.d.querySelector("[data-revspeak]");
+  mkMenu.innerHTML = MK_COLORS.map(c => `<button type="button" class="hl-dot hl-${c}" data-hl="${c}" title="${esc(N[c])}" aria-label="${esc((fr ? "Surligner en " : "Highlight ") + N[c].toLowerCase())}"></button>`).join("")
+    + `<button type="button" class="hl-act" data-hl="erase" title="${fr ? "Effacer le surlignage" : "Remove highlight"}">⌫</button>`
+    + (readOk ? `<button type="button" class="hl-act hl-read" data-hl="read">▶ ${fr ? "Lire d'ici" : "Read from here"}</button>` : "");
+  mkMenu.hidden = false;
+  mkPlace();
+}
+/** Place le menu sous la sélection (au-dessus s'il n'y a pas la place) : en haut, Android affiche déjà son propre menu Copier. */
+function mkPlace() {
+  if (!mkMenu || mkMenu.hidden || !mkCur) return;
+  if (!mkCur.d.isConnected) { mkHide(); return; }
+  let r = mkCur.rect;
+  const sel = window.getSelection && window.getSelection();
+  if (sel && !sel.isCollapsed && sel.rangeCount) r = sel.getRangeAt(0).getBoundingClientRect();
+  else if (mkCur.mark && mkCur.mark.isConnected) r = mkCur.mark.getBoundingClientRect();
+  const vw = document.documentElement.clientWidth || innerWidth, vh = innerHeight, mw = mkMenu.offsetWidth, mh = mkMenu.offsetHeight;
+  const nav = document.getElementById("bottom-nav"), navTop = nav && !nav.hidden ? nav.getBoundingClientRect().top : vh;
+  let top = r.bottom + 12;
+  if (top + mh > navTop - 6) top = r.top - mh - 12;
+  top = Math.max(8, Math.min(top, navTop - mh - 6));
+  const left = Math.max(8, Math.min(r.left + r.width / 2 - mw / 2, vw - mw - 8));
+  mkMenu.style.top = top + "px"; mkMenu.style.left = left + "px";
+}
+document.addEventListener("selectionchange", () => {
+  clearTimeout(mkSelT);
+  mkSelT = setTimeout(() => {
+    const cur = mkFromSelection();
+    // Android efface la sélection dès qu'on touche le menu : on le garde un instant pour que le toucher arrive
+    if (cur) mkShow(cur); else if (mkCur && !mkCur.mark && Date.now() - mkPress > 900) mkHide();
+  }, 220);
+});
+// toucher un passage coloré (sans sélection) : menu pour ce passage
+document.addEventListener("click", e => {
+  if (mkMenu && mkMenu.contains(e.target)) return;
+  const m = e.target.closest && e.target.closest(".rev-pane mark.hl");
+  const sel = window.getSelection && window.getSelection();
+  if (m && (!sel || sel.isCollapsed)) {
+    const el = m.closest(MK_BLOCKS.split(", ").map(x => x.replace(".rev-pane ", "")).join(", ")), d = m.closest(".rev-card");
+    if (el && d) {
+      // étendue du passage (marks voisins de même couleur = un seul passage)
+      const cls = [...m.classList].find(x => x.startsWith("hl-")), parts = [...el.querySelectorAll("mark.hl")];
+      let i = parts.indexOf(m), j = i;
+      const off = node => { const x = document.createRange(); x.selectNodeContents(el); x.setEndBefore(node); return x.toString().length; };
+      while (i > 0 && parts[i - 1].classList.contains(cls) && off(parts[i - 1]) + parts[i - 1].textContent.length === off(parts[i])) i--;
+      while (j < parts.length - 1 && parts[j + 1].classList.contains(cls) && off(parts[j]) + parts[j].textContent.length === off(parts[j + 1])) j++;
+      const a = off(parts[i]), b = off(parts[j]) + parts[j].textContent.length;
+      mkShow({ d, spans: [{ el, a, b }], rect: m.getBoundingClientRect(), mark: m });
+      return;
+    }
+  }
+  if (mkCur && mkCur.mark) mkHide();
+});
+addEventListener("scroll", () => { if (mkMenu && !mkMenu.hidden) requestAnimationFrame(mkPlace); }, { passive: true });
+addEventListener("resize", () => { if (mkMenu && !mkMenu.hidden) mkPlace(); });
 
 /* ---- Onglet « Rechercher » : retrouver des questions par identifiant (BK_0123, CL_20045, plusieurs à la fois),
    par mots (anglais et français : question, propositions, explication, mise en situation) ou par chapitre (CH_07, PT_D3…),

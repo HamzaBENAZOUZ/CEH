@@ -1,7 +1,7 @@
 {
- "versionCode": 27,
- "versionName": "3.6",
+ "versionCode": 28,
+ "versionName": "3.7",
  "apk": "ceh-training.apk",
- "notes_fr": "Lecture en français : « pé » seulement pour un P suivi d'un point-virgule ; IP redevient « I P ».",
- "notes": "French reading: 'pé' only for a P followed by a semicolon; IP is read 'I P' again."
+ "notes_fr": "Lecture : plus de « pé ». Le point-virgule est lu comme une virgule, et la voiture affiche les sigles en entier (FTP, TCP, IP).",
+ "notes": "Reading: no more 'pé'. Semicolons are read as commas, and the car shows acronyms in full (FTP, TCP, IP)."
 }

@@ -1,7 +1,7 @@
 {
- "versionCode": 34,
- "versionName": "3.13",
+ "versionCode": 35,
+ "versionName": "3.14",
  "apk": "ceh-training.apk",
- "notes_fr": "Fiches : sélectionne un mot ou un passage pour le surligner en couleur (5 couleurs, Effacer) ou lancer « Lire d'ici ». Touche un passage coloré pour changer sa couleur.",
- "notes": "Sheets: select a word or passage to highlight it in colour (5 colours, Remove) or start « Read from here ». Tap a highlighted passage to change it."
+ "notes_fr": "Lecture à voix haute : les commandes sont dites comme on les tape (« nmap -sS » → « tiret s S », « /etc/shadow » → « slash E T C slash shadow », --flood, |, ==, $…). Section Expert CEH : les vraies options Nmap (-sS, -Pn, -T0…). La voiture réaffiche les signes.",
+ "notes": "Read aloud: commands are spoken the way you type them (« -sS » → « dash s S », « /etc/shadow » → « slash E T C slash shadow », --flood, |, ==, $…). CEH expert: the real Nmap options (-sS, -Pn, -T0…). The car shows the symbols again."
 }

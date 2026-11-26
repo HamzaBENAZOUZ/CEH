@@ -3276,6 +3276,7 @@ function renderResults() {
         <button class="btn btn-ghost" id="btn-home">${esc(t("res.home"))}</button>
       </div>
     </div>
+    ${resByChapter(r)}
     <h2 class="mono section-title">${esc(t("res.detail"))}</h2>
     ${rows}
   </section>`;
@@ -3283,8 +3284,43 @@ function renderResults() {
   bindFlags();
   document.getElementById("btn-home").onclick = () => go("");
   document.getElementById("btn-retry").onclick = () => startQuiz({ ...r.opts, questions: r.mode === "chapter" ? r.opts.questions : shuffle(r.opts.questions) });
+  app.querySelectorAll("[data-res-rev]").forEach(b => b.onclick = () => {
+    const id = +b.dataset.resRev;
+    revOpen.set("revision:" + id, "mem");
+    setSection("revision");
+    const card = app.querySelector(`.rev-card[data-rev="${id}"]`);
+    if (card) { card.open = true; card.scrollIntoView({ behavior: "smooth", block: "start" }); }
+  });
   const rw = document.getElementById("btn-retry-wrong");
   if (rw) rw.onclick = () => startQuiz({ mode: "mistakes", chapter_id: r.chapter_id, lab: { k: "errorsOf", of: r.opts.lab }, questions: shuffle(wrong.map(d => d.q)), feedback: true });
+}
+
+/* Rapport par chapitre (3.2, A21), sous le score, quand le quiz couvre au moins deux chapitres (examen blanc, sélection…).
+   Chapitre d'une question : celui du Study Guide, sinon le chapitre estimé par « À revoir » (mots-clés des fiches).
+   Les chapitres les plus faibles d'abord, avec un lien vers la fiche. Lecture seule : rien n'est enregistré. */
+function resByChapter(r) {
+  const fr = getLang() === "fr", by = new Map();
+  for (const d of r.details) {
+    let dom = (chById(d.q.chapter_id) || {}).domain || null;
+    if (!dom) try { dom = impExtracts(d.q).domain || null; } catch { dom = null; }
+    const k = dom || 0, g = by.get(k) || { n: 0, ok: 0 };
+    g.n++; if (d.ok) g.ok++; by.set(k, g);
+  }
+  if (by.size < 2) return "";
+  const per = r.total ? Math.round(r.duration / r.total) : 0;
+  const rowsH = [...by.entries()].sort((a, b) => pct(a[1].ok, a[1].n) - pct(b[1].ok, b[1].n) || b[1].n - a[1].n).map(([dom, g]) => {
+    const id = 600 + dom, rev = dom && REVISION.some(x => x.id === id), p = pct(g.ok, g.n);
+    const name = dom ? `${chLabel(id)} · ${chTitle(chById(id)) || ""}` : (fr ? "Sans chapitre identifié" : "No chapter found");
+    return `<div class="rd-row res-ch">
+      <div class="rd-info"><div class="rd-title">${esc(name)}</div>
+        <div class="rd-meta"><span class="rd-bar"><span style="width:${p}%"></span></span><span class="mono ${p >= PASS ? "accent" : "danger"}">${g.ok}/${g.n} · ${p} %</span></div></div>
+      ${rev && g.ok < g.n ? `<div class="rd-act"><button class="btn btn-ghost btn-xs" data-res-rev="${id}">${fr ? "📖 Relire la fiche" : "📖 Read the sheet"}</button></div>` : ""}
+    </div>`;
+  }).join("");
+  return `<section class="rd-box res-chapters">
+    <h2 class="rd-head"><span class="mono accent">📊</span> ${fr ? "Résultat par chapitre" : "Score by chapter"}</h2>
+    <p class="muted small">${fr ? `Les plus faibles d'abord. Temps moyen : ${per} s par question.` : `Weakest first. Average time: ${per} s per question.`}</p>
+    <div class="rd-list">${rowsH}</div></section>`;
 }
 
 // ------------------------------------------------------------------ history

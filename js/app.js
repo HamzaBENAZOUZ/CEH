@@ -1033,7 +1033,7 @@ function errorPanel(title, msg, hint) {
 // Numéro de version affiché discrètement à côté du logo (même numéro que l'APK : à changer à chaque version).
 const ESL_KEY = "ceh-esl";
 const eslOn = () => { try { return localStorage.getItem(ESL_KEY) === "1"; } catch { return false; } };
-const APP_VERSION = "3.10";
+const APP_VERSION = "3.11";
 function renderVersion() {
   if (document.getElementById("app-ver")) return;
   const brand = document.querySelector(".brand"); if (!brand) return;
@@ -1351,9 +1351,64 @@ function rdResume(e) {
 // La dernière version est publiée sur le site (apk/version.json + apk/ceh-training.apk). L'appli compare
 // avec sa propre version et propose d'installer la nouvelle d'un clic.
 let updateInfo = null, updateChecked = 0;
+/** « 3.10 » > « 3.9 » : compare les numéros de version morceau par morceau. */
+const newerVersion = (a, b) => {
+  const x = String(a).split(".").map(Number), y = String(b).split(".").map(Number);
+  for (let i = 0; i < Math.max(x.length, y.length); i++) { const d = (x[i] || 0) - (y[i] || 0); if (d) return d > 0; }
+  return false;
+};
+/** Recharge la dernière version du site : vide le cache du service worker, revérifie chaque fichier auprès du
+ *  serveur (le cache HTTP du navigateur est remplacé), met à jour le service worker, puis recharge la page. */
+async function hardReload() {
+  try {
+    if (navigator.onLine) {
+      const urls = [location.href.split("#")[0], ...[...document.querySelectorAll('script[src], link[rel="stylesheet"]')].map(e => e.src || e.href)];
+      try { const m = document.querySelector('script[type="importmap"]'); if (m) urls.push(...Object.values(JSON.parse(m.textContent).imports || {}).map(u => new URL(u, location.href).href)); } catch { /* ignore */ }
+      await withTimeoutP(Promise.all(urls.filter(u => u && new URL(u).host === location.host).map(u => fetch(u, { cache: "reload" }).catch(() => {}))), 8000);
+      if (window.caches) for (const k of await caches.keys()) if (k.startsWith("ceh-site-")) await caches.delete(k);
+    }
+    if ("serviceWorker" in navigator) { const r = await navigator.serviceWorker.getRegistration(); if (r) await withTimeoutP(r.update(), 5000); }
+  } catch { /* ignore */ }
+  location.reload();
+}
+const withTimeoutP = (p, ms) => Promise.race([p, new Promise(r => setTimeout(r, ms))]);
+// Site web (hors appli) : apk/version.json donne aussi la dernière version du site. Si la page ouverte est plus
+// ancienne (onglet resté ouvert, copie en cache), un bandeau propose de recharger la nouvelle.
+let webUpdate = null;
+async function checkWebUpdate(manual) {
+  try {
+    const r = await fetch(new URL("apk/version.json", location.href).href + "?t=" + Date.now(), { cache: "no-store" });
+    if (!r.ok) return;
+    const v = await r.json();
+    if (newerVersion(v.versionName, APP_VERSION)) { webUpdate = v; renderWebUpdate(); }
+    else if (manual) toast(getLang() === "fr" ? `Tu as déjà la dernière version (${APP_VERSION}).` : `You already have the latest version (${APP_VERSION}).`, "ok");
+  } catch { if (manual) toast(getLang() === "fr" ? "Vérification impossible : pas de connexion ?" : "Could not check: no connection?", "warn"); }
+}
+function renderWebUpdate() {
+  const v = webUpdate; if (!v) return;
+  const skip = (() => { try { return sessionStorage.getItem("ceh-web-update-later"); } catch { return null; } })();
+  let bar = document.getElementById("update-bar");
+  if (skip === v.versionName) { if (bar) bar.remove(); return; }
+  const fr = getLang() === "fr";
+  if (!bar) { bar = document.createElement("div"); bar.id = "update-bar"; bar.className = "update-bar"; document.body.appendChild(bar); }
+  const notes = (fr ? v.notes_fr || v.notes : v.notes || v.notes_fr) || "";
+  bar.innerHTML = `<div class="update-txt"><strong>⬆️ ${fr ? `Nouvelle version ${esc(v.versionName)} du site` : `New site version ${esc(v.versionName)}`}</strong>
+      ${notes ? `<span class="muted small">${esc(notes)}</span>` : ""}</div>
+    <div class="update-actions">
+      <button class="btn btn-primary btn-sm" id="update-go">${fr ? "Recharger" : "Reload"}</button>
+      <button class="btn btn-ghost btn-sm" id="update-later">${fr ? "Plus tard" : "Later"}</button>
+    </div>`;
+  bar.querySelector("#update-go").onclick = e => { e.currentTarget.disabled = true; e.currentTarget.textContent = "…"; hardReload(); };
+  bar.querySelector("#update-later").onclick = () => { try { sessionStorage.setItem("ceh-web-update-later", v.versionName); } catch { /* ignore */ } bar.remove(); };
+}
 async function checkUpdate(manual = false) {
-  if (!nativeTTS || typeof nativeTTS.appVersion !== "function") return;
   if (!manual && Date.now() - updateChecked < 120000) return;   // au plus une vérification toutes les 2 min
+  if (!nativeTTS || typeof nativeTTS.appVersion !== "function") {
+    if (IN_APP) return;
+    updateChecked = Date.now();
+    if (manual) try { sessionStorage.removeItem("ceh-web-update-later"); } catch { /* ignore */ }
+    return checkWebUpdate(manual);
+  }
   updateChecked = Date.now();
   if (manual) try { sessionStorage.removeItem("ceh-update-later"); } catch { /* ignore */ }
   try {
@@ -1406,7 +1461,7 @@ function applyStaticTexts() {
   if (state.store) badge.textContent = state.store.kind !== "supabase" ? t("top.local") : state.store.offline ? t("off.badge") : "SUPABASE";
   if (state.store && state.store.autonomous) badge.textContent = t("auto.badge");
   badge.classList.toggle("badge-off", !!(state.store && state.store.offline));
-  renderExam(); renderMute(); renderSpeedBtn(); renderTvBtn(); renderVersion(); if (updateInfo) renderUpdate();
+  renderExam(); renderMute(); renderSpeedBtn(); renderTvBtn(); renderVersion(); if (updateInfo) renderUpdate(); else if (webUpdate) renderWebUpdate();
 }
 function rerender() {
   applyStaticTexts();
@@ -2401,13 +2456,7 @@ function renderSettings() {
   </div>`;
   const $ = id => document.getElementById(id), on = (id, f) => { const b = $(id); if (b) b.onclick = f; };
   on("set-update", () => checkUpdate(true));
-  on("set-reload", async () => {
-    try {
-      if ("serviceWorker" in navigator) { const r = await navigator.serviceWorker.getRegistration(); if (r) await r.update(); }
-      if (navigator.onLine && window.caches) for (const k of await caches.keys()) await caches.delete(k);
-    } catch { /* ignore */ }
-    location.reload();
-  });
+  on("set-reload", () => hardReload());
   const fsStep = dir => { const i = FS_STEPS.indexOf(fsGet()); fsSet(FS_STEPS[Math.max(0, Math.min(FS_STEPS.length - 1, i + dir))]); renderSettings(); };
   on("fs-minus", () => fsStep(-1)); on("fs-plus", () => fsStep(1)); on("fs-reset", () => { fsSet(100); renderSettings(); });
   const uiStep = dir => { const i = UI_STEPS.indexOf(uiGet()); uiSet(UI_STEPS[Math.max(0, Math.min(UI_STEPS.length - 1, i + dir))]); renderSettings(); };

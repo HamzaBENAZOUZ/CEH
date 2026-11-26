@@ -1,7 +1,7 @@
 {
- "versionCode": 36,
- "versionName": "3.15",
+ "versionCode": 37,
+ "versionName": "3.16",
  "apk": "ceh-training.apk",
- "notes_fr": "Lecture : « UDP 137 » n'est plus lu « U D page 137 » (une lettre seule suivie d'un nombre n'est plus prise pour une abréviation).",
- "notes": "Reading: a single spelled letter followed by a number is no longer read as an abbreviation (« UDP 137 »)."
+ "notes_fr": "Voiture ↔ téléphone : la position la plus récente gagne. En se branchant dans la voiture, la lecture reprend là où le téléphone s'est arrêté s'il a lu plus récemment (au lieu de l'ancien chapitre de la voiture).",
+ "notes": "Car ↔ phone: the most recent position wins. When you connect to the car, playback resumes where the phone stopped if it was used more recently."
 }

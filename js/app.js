@@ -2130,6 +2130,13 @@ const lsStepSet = (k, v) => { try { if (v === 100) localStorage.removeItem(k); e
 function fsSet(v) { lsStepSet(FS_KEY, v); document.documentElement.style.setProperty("--read-fs", String(v / 100)); }
 function uiSet(v) { lsStepSet(UI_KEY, v); document.documentElement.style.fontSize = v === 100 ? "" : v + "%"; }
 fsSet(fsGet()); uiSet(uiGet());
+/* Mode lecture sobre (3.2, A36) : masque le fond animé, les lignes de balayage et l'effet glitch. */
+const CALM_KEY = "ceh-calm";
+const calmGet = () => { try { return localStorage.getItem(CALM_KEY) === "1"; } catch { return false; } };
+function calmSet(on) {
+  try { if (on) localStorage.setItem(CALM_KEY, "1"); else localStorage.removeItem(CALM_KEY); } catch { /* ignore */ }
+  if (on) document.documentElement.dataset.calm = "1"; else delete document.documentElement.dataset.calm;
+}
 
 /* ---- Onglet Paramètres : mise à jour, taille du texte, langue, thème, lecture audio, examen, compte. */
 function renderSettings() {
@@ -2184,6 +2191,7 @@ function renderSettings() {
         <div class="seg"><button class="seg-btn mono" data-set-lang="fr" aria-pressed="${fr}">FR</button><button class="seg-btn mono" data-set-lang="en" aria-pressed="${!fr}">EN</button></div></div>
       <div class="set-line"><span>${L("Thème", "Theme")}</span>
         <div class="seg"><button class="seg-btn" data-set-theme="dark" aria-pressed="${th === "dark"}">🌙 ${L("Sombre", "Dark")}</button><button class="seg-btn" data-set-theme="light" aria-pressed="${th === "light"}">☀️ ${L("Clair", "Light")}</button></div></div>
+      <label class="esl-opt small"><input type="checkbox" id="set-calm" ${calmGet() ? "checked" : ""}> ${L("Lecture sobre : sans fond animé ni effets (moins de fatigue visuelle, moins de batterie)", "Calm reading: no animated background or effects (easier on the eyes and the battery)")}</label>
     </section>
     ${canSpeak ? `<section class="panel set-card">
       <h3 class="mono">🔊 ${L("Lecture audio", "Audio reading")}</h3>
@@ -2225,6 +2233,7 @@ function renderSettings() {
   app.querySelectorAll("[data-set-voice]").forEach(s => s.onchange = () => setVoicePref(s.dataset.setVoice, s.value));
   on("set-voices", () => nativeTTS.openVoiceSettings());
   on("set-exam", e => { e.stopPropagation(); toggleExamPop(true); });
+  const calm = $("set-calm"); if (calm) calm.onchange = () => calmSet(calm.checked);
   const esl = $("set-esl"); if (esl) esl.onchange = () => { try { localStorage.setItem(ESL_KEY, esl.checked ? "1" : ""); } catch { /* ignore */ } };
   on("set-logout", () => $("btn-logout").click());
 }

@@ -886,3 +886,8 @@ ul.expert-list li { border-left: 3px solid var(--accent, #d97706); padding-left:
 /* 3.1 : taille du texte de lecture séparée de l'interface (Paramètres) */
 :root { --read-fs: 1; }
 .rev-pane, .q-text, .opt-txt, .explain, .q-scenario, .read-text, [data-tts="scenario"] { zoom: var(--read-fs); }
+
+/* 3.2 (A36) : mode lecture sobre, en option dans Paramètres > Affichage : pas de fond animé, pas de lignes de balayage,
+   pas d'effet glitch. Le thème C|EH reste celui par défaut. */
+:root[data-calm="1"] #matrix, :root[data-calm="1"] .scanlines { display: none !important; }
+:root[data-calm="1"] .glitch::before, :root[data-calm="1"] .glitch::after { display: none !important; animation: none !important; }

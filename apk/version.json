@@ -1,7 +1,7 @@
 {
- "versionCode": 31,
- "versionName": "3.10",
+ "versionCode": 32,
+ "versionName": "3.11",
  "apk": "ceh-training.apk",
- "notes_fr": "La barre de lecture affiche le temps écoulé et le temps restant de la lecture en cours (estimés, ajustés à la voix). « Reprendre la lecture » montre aussi le temps lu et le temps restant.",
- "notes": "The reading bar shows elapsed and remaining time for the current reading (estimated, adjusted to the voice). 'Resume reading' also shows time read and time left."
+ "notes_fr": "Le site se met à jour avec un simple rafraîchissement (plus de version bloquée en cache), et un bandeau propose de recharger quand une nouvelle version sort.",
+ "notes": "A normal refresh now loads the latest site version (no more stale cache), and a banner offers to reload when a new version is out."
 }

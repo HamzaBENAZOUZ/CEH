@@ -567,7 +567,7 @@ function audioText(x, lang) {
     s = s.replace(/(\d)\s*\/\s*(\d)/g, `$1 ${L.per} $2`);
     for (let k = 0; k < 4; k++) {   // A/B/C : plusieurs barres de suite
       const t2 = s.replace(/([\p{L}\p{N}][\p{L}\p{N}.+-]*)\s*\/\s*([\p{L}\p{N}][\p{L}\p{N}+-]*)/gu,
-        (m, a, b) => /^[A-Z0-9.+-]+$/.test(a) && /^[A-Z0-9+-]+$/.test(b) ? `${a} ${b}` : `${a} ${L.or} ${b}`);
+        (m, a, b) => /^[A-Z0-9.+-]+$/.test(a) && /^[A-Z0-9+-]+$/.test(b) ? `${a}, ${b}` : `${a} ${L.or} ${b}`);
       if (t2 === s) break; s = t2;
     }
     s = s.replace(/\s\/\s/g, ", ").replace(/\//g, " ");
@@ -618,7 +618,7 @@ const SAY_TERMS = [[/\bDRDoS\b/g, "D R D O S"], [/\bDDoS\b/g, "D D O S"], [/\bDo
    « nmap tiret s S tiret p 80 », « /etc/shadow » « slash E T C slash shadow », « --flood » « double tiret flood ».
    Le texte affiché ne change pas : seule la voix (téléphone, site, voiture) reçoit cette version. */
 const CMD_SAY = {
-  fr: { dash: "tiret", ddash: "double tiret", cap: c => `${c} majuscule`, slash: "slash", bslash: "antislash", dot: "point",
+  fr: { pe: true, dash: "tiret", ddash: "double tiret", cap: c => `${c} majuscule`, slash: "slash", bslash: "antislash", dot: "point",
     colon: "deux points", eq: "égal", eqeq: "double égal", neq: "différent de", pipe: "pipe", pipe2: "double pipe",
     amp: "et commercial", amp2: "double et commercial", dollar: "dollar", pct: "pour cent", at: "arobase", star: "étoile",
     tilde: "tilde", under: "underscore", q: "point d'interrogation", excl: "point d'exclamation", gt: "chevron", quote: "apostrophe" },
@@ -634,7 +634,7 @@ function cmdWord(w, long) {
   if (!w) return "";
   if (/^\d+$/.test(w)) return w;
   if (CMD_UP.has(w.toLowerCase())) return w.toUpperCase();
-  if (long || /^[a-z]{4,}$/.test(w)) return /[aeiouy]/i.test(w) ? w : w.split("").join(" ");
+  if (long || /^[a-z]{4,}$/.test(w)) return /[aeiouy]/i.test(w) ? w : w.toUpperCase().split("").join(" ");
   return w;
 }
 /** Un morceau de commande sans espace (chemin, URL, nom de fichier, identifiant) : chaque séparateur est dit en toutes lettres. */
@@ -667,8 +667,10 @@ function sayCmd(x, lang) {
         if (i) words.push(L.dash);
         if (!p) return;
         if (long) { words.push(cmdWord(p, true)); return; }
-        if (/^[A-Z]$/.test(p)) { words.push(L.cap(p)); return; }
-        words.push((p.match(/\d+|[A-Za-z]/g) || [p]).join(" "));
+        // 3.17 : un « p » seul est lu « page » par certaines voix françaises (France FRD) : on écrit « pé »
+        const pe = c => L.pe && /^[pP]$/.test(c) ? c + "é" : c;
+        if (/^[A-Z]$/.test(p)) { words.push(L.cap(pe(p))); return; }
+        words.push((p.match(/\d+|[A-Za-z]/g) || [p]).map(pe).join(" "));
       });
       return pre + words.join(" ");
     })
@@ -693,7 +695,7 @@ function sayCmd(x, lang) {
   // dans une commande seulement : pipe, redirection, « ! » seul, « $1 », mots courts sans voyelle épelés (ls, rm, nc, cd)
   if (ctx) s = s.replace(/(^|\s)\|(?=\s)/g, `$1${L.pipe}`).replace(/(?<=\w) > (?=[a-z])/g, ` ${L.gt} `)
     .replace(/(^|\s)!(?=[\s,])/g, `$1${L.excl}`).replace(/\$(?=\d)/g, `${L.dollar} `)
-    .replace(/(?<![\p{L}\p{N}'-])[b-df-hj-np-tv-xz]{2,4}(?![\p{L}\p{N}'-])/gu, w => w.split("").join(" "));
+    .replace(/(?<![\p{L}\p{N}'-])[b-df-hj-np-tv-xz]{2,4}(?![\p{L}\p{N}'-])/gu, w => w.toUpperCase().split("").join(" "));
   return s.replace(/ {2,}/g, " ");
 }
 const spellW = w => ACR_WORDS.has(w) ? w : w.split("").join(" ");
@@ -712,8 +714,15 @@ function spellAcr(x, lang) {
   // 3.15 (demande HB, capture « UDP 137 » lu « U D page 137 ») : une lettre seule suivie d'un nombre est lue comme une
   // abréviation (p 137 → « page 137 », s → « secondes », m → « mètres »). Une virgule entre les deux évite ça :
   // « U D P, 137 », « tiret p, 80 ». Lettre minuscule : seulement après une autre lettre épelée ou « tiret » (pas « il a 3 »).
-  const sep = out.replace(/(?<![\p{L}\p{N}'’-])([A-Z]) (?=\d)/gu, "$1, ")
-    .replace(/(?<=(?:^|\s)(?:[A-Za-z]|tiret|dash) )([a-z]) (?=\d)/g, "$1, ");
+  // 3.17 (HB, Android Auto : « UDP 5355 » encore lu « U D page ») : la voix lit un P isolé « page », même sans nombre
+  // derrière (« F T P; » en 3.4). On ne laisse plus jamais un P seul dans un sigle épelé : il est collé à sa voisine,
+  // « U DP », « T CP », « PGP », « H T TP » (deux lettres collées sont épelées). La voiture réaffiche « UDP ».
+  const glued = out.replace(/(?<![\p{L}\p{N}])P (?=[A-Z](?![\p{L}\p{N}]))/gu, "P")
+    .replace(/(?<=(?<![\p{L}\p{N}])[A-Z]{1,3}) P(?![\p{L}\p{N}])/gu, "P")
+    // un P vraiment seul (« flags S, A, F, R, P, U », « les options en P ») : écrit « Pé » en français
+    .replace(/(?<![\p{L}\p{N}@])P(?![\p{L}\p{N}@])/gu, fr ? "Pé" : "P");
+  const sep = glued.replace(/(?<![\p{L}\p{N}'’-])([A-Z]) (?=\d)/gu, "$1, ")
+    .replace(/(?<=(?:^|\s)(?:[A-Z]{1,3}|[a-z]|tiret|dash) )([a-z]) (?=\d)/g, "$1, ");
   return fr ? sep.replace(/\s*;/g, ",") : sep;
 }
 /* Les émojis des libellés (« 📚 Tout le chapitre », « 📘 Livre ») ne sont pas lus à voix haute. */
@@ -1132,7 +1141,7 @@ function errorPanel(title, msg, hint) {
 // Numéro de version affiché discrètement à côté du logo (même numéro que l'APK : à changer à chaque version).
 const ESL_KEY = "ceh-esl";
 const eslOn = () => { try { return localStorage.getItem(ESL_KEY) === "1"; } catch { return false; } };
-const APP_VERSION = "3.16";
+const APP_VERSION = "3.17";
 function renderVersion() {
   if (document.getElementById("app-ver")) return;
   const brand = document.querySelector(".brand"); if (!brand) return;

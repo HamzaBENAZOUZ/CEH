@@ -1,7 +1,7 @@
 {
- "versionCode": 37,
- "versionName": "3.16",
+ "versionCode": 38,
+ "versionName": "3.17",
  "apk": "ceh-training.apk",
- "notes_fr": "Voiture ↔ téléphone : la position la plus récente gagne. En se branchant dans la voiture, la lecture reprend là où le téléphone s'est arrêté s'il a lu plus récemment (au lieu de l'ancien chapitre de la voiture).",
- "notes": "Car ↔ phone: the most recent position wins. When you connect to the car, playback resumes where the phone stopped if it was used more recently."
+ "notes_fr": "Lecture : un P n'est plus jamais lu « page » (UDP, TCP, FTP, HTTP… et l'option -p), aussi en voiture.",
+ "notes": "Reading: a lone P is never read as « page » any more (UDP, TCP, FTP, -p), in the car too."
 }
